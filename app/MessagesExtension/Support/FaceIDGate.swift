@@ -8,6 +8,13 @@ import WalletKit
 /// derivation later (docs/decisions/0002-encryption-path.md).
 struct FaceIDGate {
     func authenticate(reason: String) async throws {
+        #if targetEnvironment(simulator)
+            // Biometrics inside a Messages extension are unreliable on the
+            // simulator, and simulators have no passcode for the fallback —
+            // the gate would just dead-end. Skip it in simulator builds;
+            // devices always enforce it.
+            return
+        #endif
         // A systemCancel means our sheet was preempted — by a presentation
         // transition or another auth UI still tearing down. Those windows
         // can outlast a single retry, so back off and try a few times
