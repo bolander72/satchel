@@ -177,12 +177,21 @@ final class WalletStore: ObservableObject {
     /// declined the passkey), fall back to the synced-keychain provider
     /// gated by an LAContext Face ID prompt — ADR 0002.
     private func establishKeyForNewWallet() async throws -> (material: Data, provider: String) {
-        if #available(iOS 18.0, *) {
-            let prf = PasskeyPRFKeyProvider(anchor: presentationAnchor)
-            if let material = try? await prf.keyMaterial() {
-                return (material, prf.identifier)
+        // Simulators can't validate associated domains, so the passkey
+        // attempt always fails there — skip it instead of flashing doomed
+        // system sheets that race the fallback Face ID prompt.
+        #if !targetEnvironment(simulator)
+            if #available(iOS 18.0, *) {
+                let prf = PasskeyPRFKeyProvider(anchor: presentationAnchor)
+                if let material = try? await prf.keyMaterial() {
+                    return (material, prf.identifier)
+                }
+                // The failed passkey sheet needs to finish tearing down
+                // before LAContext presents, or the prompt gets
+                // system-canceled underneath us.
+                try? await Task.sleep(nanoseconds: 800_000_000)
             }
-        }
+        #endif
         try await faceID.authenticate(reason: "Create your Bitcoin wallet")
         return (try await keychainProvider.keyMaterial(), keychainProvider.identifier)
     }

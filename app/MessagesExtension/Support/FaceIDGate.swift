@@ -8,16 +8,21 @@ import WalletKit
 /// derivation later (docs/decisions/0002-encryption-path.md).
 struct FaceIDGate {
     func authenticate(reason: String) async throws {
-        do {
-            try await evaluateOnce(reason: reason)
-        } catch let error as LAError where error.code == .systemCancel {
-            // The sheet was preempted by another system authentication or a
-            // presentation transition (common right as the Messages extension
-            // expands). Let things settle and retry once with a fresh context.
-            try await Task.sleep(nanoseconds: 700_000_000)
-            try await evaluateOnce(reason: reason)
-        } catch let error as LAError {
-            throw WalletKitError.keyUnavailable(friendlyMessage(for: error))
+        // A systemCancel means our sheet was preempted — by a presentation
+        // transition or another auth UI still tearing down. Those windows
+        // can outlast a single retry, so back off and try a few times
+        // before surfacing an error.
+        var attemptsLeft = 3
+        while true {
+            do {
+                try await evaluateOnce(reason: reason)
+                return
+            } catch let error as LAError where error.code == .systemCancel && attemptsLeft > 0 {
+                attemptsLeft -= 1
+                try await Task.sleep(nanoseconds: 900_000_000)
+            } catch let error as LAError {
+                throw WalletKitError.keyUnavailable(friendlyMessage(for: error))
+            }
         }
     }
 
