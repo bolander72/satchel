@@ -1,0 +1,25 @@
+# macOS
+.DS_Store
+
+# Xcode — project is generated from app/project.yml via XcodeGen
+app/*.xcodeproj
+app/*.xcworkspace
+DerivedData/
+*.xcuserstate
+xcuserdata/
+
+# Swift Package Manager / xcodebuild
+.build/
+.swiftpm/
+app/WalletKit/build/
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+app/build/

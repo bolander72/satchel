@@ -1,0 +1,138 @@
+import Foundation
+import XCTest
+
+@testable import WalletKit
+
+final class BackupCryptoTests: XCTestCase {
+    private let secrets = WalletSecrets(
+        mnemonic: "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+        network: .signet,
+        scriptType: .bip84,
+        receiveIndexHint: 7,
+        changeIndexHint: 2,
+        // Whole seconds: ISO8601 coding drops sub-second precision.
+        createdAt: Date(timeIntervalSince1970: 1_751_000_000)
+    )
+
+    func testSealOpenRoundTrip() throws {
+        let key = Data((0..<32).map { UInt8($0) })
+        let envelope = try BackupCrypto.seal(secrets, inputKeyMaterial: key, keyProvider: "synced-keychain")
+
+        XCTAssertEqual(envelope.cipher, BackupCrypto.cipherIdentifier)
+        XCTAssertEqual(envelope.network, .signet)
+
+        let restored = try BackupCrypto.open(envelope, inputKeyMaterial: key)
+        XCTAssertEqual(restored, secrets)
+    }
+
+    func testWrongKeyFails() throws {
+        let envelope = try BackupCrypto.seal(secrets, inputKeyMaterial: Data(repeating: 1, count: 32), keyProvider: "t")
+        XCTAssertThrowsError(try BackupCrypto.open(envelope, inputKeyMaterial: Data(repeating: 2, count: 32)))
+    }
+
+    func testCiphertextDoesNotContainMnemonic() throws {
+        let key = Data(repeating: 9, count: 32)
+        let envelope = try BackupCrypto.seal(secrets, inputKeyMaterial: key, keyProvider: "t")
+        let json = String(data: try JSONEncoder().encode(envelope), encoding: .utf8)!
+        XCTAssertFalse(json.contains("abandon"))
+    }
+
+    func testEnvelopesAreNotLinkableAcrossRewrites() throws {
+        let key = Data(repeating: 3, count: 32)
+        let a = try BackupCrypto.seal(secrets, inputKeyMaterial: key, keyProvider: "t")
+        let b = try BackupCrypto.seal(secrets, inputKeyMaterial: key, keyProvider: "t")
+        XCTAssertNotEqual(a.salt, b.salt)
+        XCTAssertNotEqual(a.sealed, b.sealed)
+    }
+}
+
+final class PaymentRequestTests: XCTestCase {
+    func testBip21URI() {
+        let request = PaymentRequest(
+            address: "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq",
+            amountSats: 150_000,
+            label: "Wizard Wallet"
+        )
+        XCTAssertEqual(
+            request.bip21URI,
+            "bitcoin:bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq?amount=0.00150000&label=Wizard%20Wallet"
+        )
+    }
+
+    func testQueryItemRoundTrip() {
+        let request = PaymentRequest(
+            address: "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx",
+            amountSats: 21,
+            label: "coffee",
+            txid: String(repeating: "ab", count: 32)
+        )
+        let restored = PaymentRequest(queryItems: request.queryItems())
+        XCTAssertEqual(restored, request)
+    }
+
+    func testBtcFormatting() {
+        XCTAssertEqual(PaymentRequest.btcString(sats: 1), "0.00000001")
+        XCTAssertEqual(PaymentRequest.btcString(sats: 100_000_000), "1.00000000")
+        XCTAssertEqual(PaymentRequest.btcString(sats: 123_456_789), "1.23456789")
+    }
+}
+
+final class WalletEngineTests: XCTestCase {
+    private func tempDir() -> URL {
+        FileManager.default.temporaryDirectory
+            .appendingPathComponent("walletkit-tests-\(UUID().uuidString)", isDirectory: true)
+    }
+
+    func testGenerateProducesTwelveWords() {
+        let secrets = WalletEngine.generateSecrets(network: .signet)
+        XCTAssertEqual(secrets.mnemonic.split(separator: " ").count, 12)
+        XCTAssertEqual(secrets.scriptType, .bip84)
+    }
+
+    func testDeterministicRestoreYieldsSameAddresses() throws {
+        let secrets = WalletEngine.generateSecrets(network: .signet)
+
+        let engineA = try WalletEngine(secrets: secrets, storageDirectory: tempDir())
+        let a0 = try engineA.nextReceiveAddress()
+        let a1 = try engineA.nextReceiveAddress()
+
+        let engineB = try WalletEngine(secrets: secrets, storageDirectory: tempDir())
+        let b0 = try engineB.nextReceiveAddress()
+        let b1 = try engineB.nextReceiveAddress()
+
+        XCTAssertEqual(a0.address, b0.address)
+        XCTAssertEqual(a1.address, b1.address)
+        XCTAssertEqual(a0.index, 0)
+        XCTAssertEqual(a1.index, 1)
+        XCTAssertTrue(a0.address.hasPrefix("tb1q"), "BIP84 signet addresses are bech32 tb1q…")
+    }
+
+    func testRestoreHintRevealsAddressesUpfront() throws {
+        var secrets = WalletEngine.generateSecrets(network: .signet)
+        secrets.receiveIndexHint = 5
+
+        let engine = try WalletEngine(secrets: secrets, storageDirectory: tempDir())
+        XCTAssertEqual(engine.revealedIndexes().receive, 5)
+        XCTAssertEqual(try engine.nextReceiveAddress().index, 6)
+    }
+
+    func testAddressValidation() throws {
+        let engine = try WalletEngine(
+            secrets: WalletEngine.generateSecrets(network: .bitcoin),
+            storageDirectory: tempDir()
+        )
+        XCTAssertTrue(engine.validateAddress("bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"))
+        XCTAssertFalse(engine.validateAddress("tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx"), "wrong network")
+        XCTAssertFalse(engine.validateAddress("not-an-address"))
+    }
+
+    func testBip86ProducesTaprootAddresses() throws {
+        let secrets = WalletSecrets(
+            mnemonic: WalletEngine.generateSecrets(network: .bitcoin).mnemonic,
+            network: .bitcoin,
+            scriptType: .bip86
+        )
+        let engine = try WalletEngine(secrets: secrets, storageDirectory: tempDir())
+        XCTAssertTrue(try engine.nextReceiveAddress().address.hasPrefix("bc1p"))
+    }
+}

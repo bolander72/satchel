@@ -1,0 +1,90 @@
+name: WizardWallet
+options:
+  bundleIdPrefix: com.taprootwizards
+  deploymentTarget:
+    iOS: "17.5"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.10"
+    MARKETING_VERSION: 0.1.0
+    CURRENT_PROJECT_VERSION: 1
+    # Set your Apple Developer team here (or in Xcode) to run on device.
+    DEVELOPMENT_TEAM: ""
+  configs:
+    debug:
+      # Debug builds run on signet (Mutinynet) — free test coins.
+      WALLET_NETWORK: signet
+    release:
+      WALLET_NETWORK: bitcoin
+
+packages:
+  WalletKit:
+    path: WalletKit
+
+targets:
+  WizardWallet:
+    type: application
+    platform: iOS
+    sources:
+      - HostApp
+    dependencies:
+      - target: MessagesExtension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.taprootwizards.imessagewallet
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+    info:
+      path: HostApp/Info.plist
+      properties:
+        CFBundleDisplayName: Wizard Wallet
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        ITSAppUsesNonExemptEncryption: false
+    entitlements:
+      path: HostApp/WizardWallet.entitlements
+      properties:
+        com.apple.developer.icloud-container-identifiers:
+          - iCloud.com.taprootwizards.imessagewallet
+        com.apple.developer.ubiquity-container-identifiers:
+          - iCloud.com.taprootwizards.imessagewallet
+        com.apple.developer.icloud-services:
+          - CloudDocuments
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)com.taprootwizards.imessagewallet.shared
+
+  MessagesExtension:
+    type: app-extension.messages
+    platform: iOS
+    sources:
+      - MessagesExtension
+    dependencies:
+      - package: WalletKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.taprootwizards.imessagewallet.MessagesExtension
+        PRODUCT_NAME: Wizard Wallet
+    info:
+      path: MessagesExtension/Info.plist
+      properties:
+        CFBundleDisplayName: Wizard Wallet
+        WalletNetwork: $(WALLET_NETWORK)
+        NSFaceIDUsageDescription: >-
+          Face ID protects your Bitcoin wallet: it's required to create,
+          unlock, and send from your wallet.
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.message-payload-provider
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).MessagesViewController
+    entitlements:
+      path: MessagesExtension/MessagesExtension.entitlements
+      properties:
+        com.apple.developer.icloud-container-identifiers:
+          - iCloud.com.taprootwizards.imessagewallet
+        com.apple.developer.ubiquity-container-identifiers:
+          - iCloud.com.taprootwizards.imessagewallet
+        com.apple.developer.icloud-services:
+          - CloudDocuments
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)com.taprootwizards.imessagewallet.shared

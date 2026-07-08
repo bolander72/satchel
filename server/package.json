@@ -1,0 +1,28 @@
+{
+  "name": "@taproot-wizards/wallet-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Optional backend for the iMessage Bitcoin wallet: Esplora-compatible proxy (UTXOs, tx lookup, broadcast) + cached fee estimates. Holds no keys, no seeds, no user accounts.",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.7",
+    "hono": "^4.6.14"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
