@@ -77,6 +77,32 @@ final class PaymentRequestTests: XCTestCase {
     }
 }
 
+final class BackupStoreTests: XCTestCase {
+    /// In the test environment there is no ubiquity container, so this
+    /// exercises the local-fallback path end to end.
+    func testFallbackSaveLoadRoundTrip() async throws {
+        let store = ICloudBackupStore()
+        XCTAssertFalse(store.isUsingICloud)
+
+        let secrets = WalletSecrets(
+            mnemonic: "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+            network: .signet,
+            scriptType: .bip84,
+            createdAt: Date(timeIntervalSince1970: 1_751_000_000)
+        )
+        let envelope = try BackupCrypto.seal(
+            secrets,
+            inputKeyMaterial: Data(repeating: 7, count: 32),
+            keyProvider: "test"
+        )
+        try store.save(envelope)
+        XCTAssertTrue(store.backupExists())
+
+        let loaded = try await store.load()
+        XCTAssertEqual(loaded, envelope)
+    }
+}
+
 final class WalletEngineTests: XCTestCase {
     private func tempDir() -> URL {
         FileManager.default.temporaryDirectory

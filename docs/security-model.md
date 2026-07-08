@@ -64,10 +64,12 @@ Not applicable — this wallet handles plain BTC only; no inscriptions logic.
 - **Apple ID compromise + device passcode** → funds. Mitigation: keep
   balances small (this is a chat wallet, not cold storage); passkey-PRF
   upgrade tightens this.
-- **iCloud Drive off / out of space** → backup save fails. The UI surfaces
-  the error; wallet still works locally, but a reinstall would lose it. V1
-  should add a backup-health indicator and optionally an advanced manual
-  seed export (open decision in the spec).
+- **iCloud Drive off / out of space** → the store falls back to app-local
+  storage so create/restore keep working, and Home shows an "iCloud
+  unavailable" banner: the wallet is then unprotected against device
+  loss/uninstall until iCloud returns. V1 should re-attempt iCloud
+  migration automatically and optionally add an advanced manual seed
+  export (open decision in the spec).
 - **Address-query privacy leak** to the public Esplora provider (ADR 0003).
 - **No spend limits/cosigner** — hidden by design in V0; real policy only
   makes sense with a server cosigner, explicitly out of scope.

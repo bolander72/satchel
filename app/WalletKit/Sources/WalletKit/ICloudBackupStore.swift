@@ -15,13 +15,26 @@ public struct ICloudBackupStore: Sendable {
         self.containerIdentifier = containerIdentifier
     }
 
+    /// True when the ubiquity container is reachable (device signed into
+    /// iCloud with iCloud Drive on). When false, the store transparently
+    /// falls back to app-local storage so create/restore still work — the
+    /// UI must surface that the wallet is *not* protected against device
+    /// loss until iCloud comes back.
+    public var isUsingICloud: Bool {
+        fileManager.url(forUbiquityContainerIdentifier: containerIdentifier) != nil
+    }
+
     private func backupURL() throws -> URL {
-        guard let container = fileManager.url(forUbiquityContainerIdentifier: containerIdentifier) else {
-            throw WalletKitError.icloudUnavailable
+        let directory: URL
+        if let container = fileManager.url(forUbiquityContainerIdentifier: containerIdentifier) {
+            directory = container.appendingPathComponent("Documents", isDirectory: true)
+        } else {
+            // No iCloud (simulator without sign-in, iCloud Drive disabled).
+            directory = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("WalletBackupLocal", isDirectory: true)
         }
-        let documents = container.appendingPathComponent("Documents", isDirectory: true)
-        try fileManager.createDirectory(at: documents, withIntermediateDirectories: true)
-        return documents.appendingPathComponent(Self.fileName)
+        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory.appendingPathComponent(Self.fileName)
     }
 
     public func backupExists() -> Bool {
@@ -35,7 +48,7 @@ public struct ICloudBackupStore: Sendable {
     public func load() async throws -> BackupEnvelope {
         let url = try backupURL()
 
-        if !fileManager.fileExists(atPath: url.path) {
+        if !fileManager.fileExists(atPath: url.path), fileManager.isUbiquitousItem(at: url) {
             // Ask iCloud to materialize the file, then poll briefly.
             try? fileManager.startDownloadingUbiquitousItem(at: url)
             for _ in 0..<40 where !fileManager.fileExists(atPath: url.path) {

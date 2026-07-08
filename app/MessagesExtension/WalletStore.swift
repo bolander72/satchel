@@ -22,6 +22,9 @@ final class WalletStore: ObservableObject {
     @Published var lastError: String?
     /// Set when the user taps a payment card in the transcript.
     @Published var incomingRequest: IncomingCard?
+    /// False when iCloud is unreachable and the backup only exists on this
+    /// device (simulator, iCloud Drive off). Home shows a warning banner.
+    @Published private(set) var backupInICloud = true
 
     let chain: ChainConfig
 
@@ -98,6 +101,7 @@ final class WalletStore: ObservableObject {
             }
             self.engine = engine
             self.secrets = secrets
+            backupInICloud = backupStore.isUsingICloud
 
             phase = .ready
             await refresh(fullScan: true)
@@ -178,6 +182,7 @@ final class WalletStore: ObservableObject {
             keyProvider: keyProvider.identifier
         )
         try backupStore.save(envelope)
+        backupInICloud = backupStore.isUsingICloud
     }
 
     // MARK: - Helpers

@@ -14,6 +14,17 @@ struct HomeView: View {
                 .padding(.top, 12)
                 .padding(.horizontal)
 
+            if !store.backupInICloud {
+                Label(
+                    "iCloud unavailable — this wallet is only on this device. Sign in to iCloud to protect it.",
+                    systemImage: "icloud.slash"
+                )
+                .font(.caption2)
+                .foregroundStyle(.orange)
+                .padding(.horizontal)
+                .padding(.top, 6)
+            }
+
             HStack(spacing: 12) {
                 Button {
                     bridge.requestExpanded()
