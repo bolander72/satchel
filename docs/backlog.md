@@ -40,7 +40,68 @@ moves between typing and broadcast, and stale-rate UX at send time.
 not before; the ambiguity cost is real and the workaround (glance at the
 ≈USD line while typing) is decent.
 
-## 4. Multi-device same-wallet writes — accepted behavior
+## 4. Siri / Shortcuts / Apple Intelligence via App Intents
+
+One framework — **App Intents** — is the integration surface for Siri
+voice queries, the Shortcuts app, Spotlight, *and* Apple Intelligence
+action invocation. Building a handful of intents lights up all four.
+
+The key enabler is the **watch-only descriptor split**: the extension can
+export the wallet's *public* descriptor (xpub) plus a state snapshot into
+the App Group — never the seed. With that, the host app / intents can
+answer read queries and even derive fresh receive addresses without any
+key material:
+
+- "What's my bitcoin balance?" → reads the shared snapshot (same one the
+  widget uses; these two features share ~all their plumbing).
+- "Give me a bitcoin receive address" → derived watch-only, shown with QR.
+- **Sending stays out of Siri.** SiriKit's payments domain
+  (`INSendPaymentIntent`) exists, but voice-initiated irreversible bitcoin
+  transfers are a scam/mis-hearing surface we don't want; sends remain
+  Face ID + review sheet in Messages, deliberately.
+
+**Trigger to build:** together with the widget (item 1) — shared App Group
+plumbing — after first on-device dogfooding.
+
+## 5. On-device AI (Foundation Models framework)
+
+Apple's Foundation Models framework (iOS 26) exposes the on-device LLM to
+apps — **fully on-device, so it fits the no-server policy exactly**.
+Plausible uses, in descending order of seriousness:
+
+- Natural-language payment parsing: "request 20 bucks from this chat" →
+  prefilled receive card (amount via the display rate).
+- Plain-English activity summaries ("you received 2 payments this week").
+- Answering security-model questions conversationally (the explainer
+  sheet as a mini-assistant).
+
+None of these are V1-critical; all are differentiators for a "wallet that
+lives where you talk." Revisit once the core is shipped and the host app
+has App Group plumbing.
+
+**Trigger to build:** post-launch polish round; requires iOS 26+ devices.
+
+## 6. Clipboard address-poisoning guard (no AI needed)
+
+Real attack: malware/lookalike contacts get a victim to pay an address
+whose first/last characters match a legitimate one (users verify only the
+ends). Cheap on-device defense in Send: warn when a pasted address
+*almost* matches one previously paid (matching prefix/suffix, different
+middle), and encourage QR/card flows over paste. Zero privacy cost.
+
+**Trigger to build:** before mainnet default flips on (it's a
+real-money protection).
+
+## 7. Universal Links for card URLs
+
+Once the static site exists, add `applinks:wallet.taprootwizards.com` to
+associated domains so tapping a card URL *outside* Messages (forwarded
+link, Android→iPhone handoff) opens the app instead of Safari. Needs the
+host app to grow a minimal "open this payment in Messages" hand-off view.
+
+**Trigger to build:** with the static site (launch-blockers item 3).
+
+## 8. Multi-device same-wallet writes — accepted behavior
 
 Two iPhones on one Apple ID can both unlock the wallet and race the backup
 reseal (last writer wins; `NSFileCoordinator` prevents torn writes; the
