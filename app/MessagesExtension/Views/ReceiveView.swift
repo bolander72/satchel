@@ -13,78 +13,134 @@ struct ReceiveView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 16) {
+                VStack(spacing: 18) {
                     if let request {
-                        card(for: request)
+                        qrCard(for: request)
+                        addressChip(for: request)
+                        amountField
+                        shareButton(for: request)
+
+                        Label(
+                            "Fresh address, never used before. Address reuse hurts privacy — tap Receive again next time.",
+                            systemImage: "leaf.fill"
+                        )
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .multilineTextAlignment(.leading)
+                        .padding(.horizontal, 6)
                     } else {
-                        ProgressView().padding(.top, 48)
+                        ProgressView().padding(.top, 60)
                     }
                 }
-                .padding()
+                .padding(20)
             }
             .navigationTitle("Receive Bitcoin")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
+                        .font(.system(.body, design: .rounded).weight(.medium))
                 }
             }
         }
         .task { await deriveAddress() }
     }
 
-    @ViewBuilder
-    private func card(for request: PaymentRequest) -> some View {
-        if let qr = QRCodeGenerator.image(for: request.bip21URI) {
-            Image(uiImage: qr)
-                .interpolation(.none)
-                .resizable()
-                .scaledToFit()
-                .frame(maxWidth: 220)
-                .padding(10)
-                .background(RoundedRectangle(cornerRadius: 16).fill(.white))
-        }
+    // MARK: - Pieces
 
+    private func qrCard(for request: PaymentRequest) -> some View {
+        VStack(spacing: 0) {
+            if let qr = QRCodeGenerator.image(for: request.bip21URI) {
+                Image(uiImage: qr)
+                    .interpolation(.none)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: 216)
+                    .padding(14)
+                    .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(.white))
+            }
+        }
+        .padding(5)
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(Brand.gradient)
+                .shadow(color: Brand.orange.opacity(0.25), radius: 14, y: 6)
+        )
+        .padding(.top, 6)
+        .animation(.spring(response: 0.35), value: request.amountSats)
+    }
+
+    private func addressChip(for request: PaymentRequest) -> some View {
         Button {
             UIPasteboard.general.string = request.address
-            copied = true
+            withAnimation(.spring(response: 0.3)) { copied = true }
+            Task {
+                try? await Task.sleep(nanoseconds: 1_800_000_000)
+                withAnimation { copied = false }
+            }
         } label: {
-            VStack(spacing: 4) {
-                Text(request.address)
-                    .font(.system(.footnote, design: .monospaced))
-                    .multilineTextAlignment(.center)
+            HStack(spacing: 8) {
+                Text(Format.shortAddress(request.address, prefix: 14, suffix: 10))
+                    .font(.system(.footnote, design: .monospaced).weight(.medium))
                     .foregroundStyle(.primary)
-                Text(copied ? "Copied!" : "Tap to copy")
-                    .font(.caption2)
-                    .foregroundStyle(copied ? .green : .secondary)
+                Image(systemName: copied ? "checkmark.circle.fill" : "doc.on.doc")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(copied ? .green : Brand.orangeDeep)
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(Capsule().fill(Color(.secondarySystemBackground)))
+            .overlay(alignment: .center) {
+                if copied {
+                    Text("Copied")
+                        .font(.system(.caption2, design: .rounded).weight(.bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(.green))
+                        .offset(y: -34)
+                        .transition(.opacity.combined(with: .move(edge: .bottom)))
+                }
             }
         }
         .buttonStyle(.plain)
+    }
 
-        HStack {
+    private var amountField: some View {
+        VStack(spacing: 6) {
             TextField("Amount in sats (optional)", text: $amountText)
                 .keyboardType(.numberPad)
-                .textFieldStyle(.roundedBorder)
+                .font(.system(.body, design: .rounded))
+                .multilineTextAlignment(.center)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color(.secondarySystemBackground))
+                )
                 .onChange(of: amountText) { _, _ in applyAmount() }
-        }
 
+            if let sats = request?.amountSats, sats > 0 {
+                Text("\(Format.btc(sats)) BTC")
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func shareButton(for request: PaymentRequest) -> some View {
         Button {
             var final = request
-            final.label = "Wizard Wallet request"
+            final.label = "Wizard Wallet"
             bridge.insertCard(for: final, kind: .request)
             dismiss()
         } label: {
             Label("Share in chat", systemImage: "message.fill")
-                .frame(maxWidth: .infinity)
         }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.large)
-
-        Text("This address is fresh — it hasn't been used before. Reuse hurts privacy, so tap Receive again next time.")
-            .font(.caption2)
-            .foregroundStyle(.tertiary)
-            .multilineTextAlignment(.center)
+        .buttonStyle(ProminentButtonStyle())
     }
+
+    // MARK: - Data
 
     private func deriveAddress() async {
         guard request == nil else { return }

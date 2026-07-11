@@ -148,6 +148,12 @@ final class WalletStore: ObservableObject {
 
     // MARK: - Send
 
+    /// Live validation for the Send form's destination field.
+    func isValidAddress(_ address: String) -> Bool {
+        guard let engine else { return false }
+        return engine.validateAddress(address.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
     /// Face ID first, then build + sign. Returns the signed-but-unbroadcast
     /// transaction for the review sheet.
     func prepareSend(to address: String, amountSats: UInt64, feeRateSatPerVb: UInt64) async throws -> SignedSend {

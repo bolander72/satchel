@@ -13,16 +13,13 @@ struct RootView: View {
             case .welcome(let hasBackup):
                 WelcomeView(store: store, bridge: bridge, hasBackup: hasBackup)
             case .working(let message):
-                VStack(spacing: 12) {
-                    ProgressView()
-                    Text(message).font(.callout).foregroundStyle(.secondary)
-                }
+                WorkingView(message: message)
             case .ready:
                 HomeView(store: store, bridge: bridge)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .tint(.orange)
+        .tint(Brand.orange)
         .alert(
             "Something went wrong",
             isPresented: Binding(
@@ -37,62 +34,74 @@ struct RootView: View {
     }
 }
 
+struct WorkingView: View {
+    let message: String
+
+    var body: some View {
+        VStack(spacing: 14) {
+            ProgressView()
+                .controlSize(.large)
+                .tint(Brand.orange)
+            Text(message)
+                .font(.system(.callout, design: .rounded).weight(.medium))
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
 struct WelcomeView: View {
     @ObservedObject var store: WalletStore
     @ObservedObject var bridge: ExtensionBridge
     let hasBackup: Bool
 
     var body: some View {
-        VStack(spacing: 16) {
-            Spacer(minLength: 8)
+        VStack(spacing: 0) {
+            Spacer(minLength: 12)
 
-            Image(systemName: "bitcoinsign.circle.fill")
-                .font(.system(size: 56))
-                .foregroundStyle(.orange)
+            BitcoinMark(size: bridge.isCompact ? 52 : 72)
+                .padding(.bottom, bridge.isCompact ? 10 : 18)
 
-            Text(hasBackup ? "Your Bitcoin wallet is ready to unlock" : "Bitcoin, right here in Messages")
-                .font(.headline)
+            Text(hasBackup ? "Welcome back" : "Bitcoin, right here in Messages")
+                .font(.system(bridge.isCompact ? .headline : .title2, design: .rounded).weight(.bold))
                 .multilineTextAlignment(.center)
 
             if !bridge.isCompact {
                 Text(
                     hasBackup
-                        ? "A backup was found in your iCloud. Unlock it with Face ID."
-                        : "One tap creates a wallet that's backed up to your iCloud — no seed phrases, no sign-ups."
+                        ? "Your wallet backup is ready. Unlock it with Face ID."
+                        : "One tap. No seed phrases, no sign-ups.\nBacked up privately to your iCloud."
                 )
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal)
+                .padding(.top, 6)
+                .padding(.horizontal, 8)
             }
 
-            if hasBackup {
-                Button {
-                    Task { await expandThen { await store.restoreWallet() } }
-                } label: {
-                    Label("Unlock with Face ID", systemImage: "faceid")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-            } else {
-                Button {
-                    Task { await expandThen { await store.createWallet() } }
-                } label: {
-                    Label("Create Bitcoin Wallet", systemImage: "sparkles")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+            Button {
+                Task { await expandThen { hasBackup ? await store.restoreWallet() : await store.createWallet() } }
+            } label: {
+                Label(
+                    hasBackup ? "Unlock with Face ID" : "Create Bitcoin Wallet",
+                    systemImage: "faceid"
+                )
             }
+            .buttonStyle(ProminentButtonStyle())
+            .padding(.top, bridge.isCompact ? 14 : 22)
 
-            if store.chain.network != .bitcoin {
+            HStack(spacing: 6) {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 9, weight: .bold))
+                Text("Keys never leave your device")
+                    .font(.system(.caption2, design: .rounded).weight(.medium))
                 NetworkBadge(network: store.chain.network)
             }
+            .foregroundStyle(.tertiary)
+            .padding(.top, 12)
 
-            Spacer(minLength: 8)
+            Spacer(minLength: 12)
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, 28)
     }
 
     /// Face ID cannot survive a compact→expanded transition happening
@@ -104,18 +113,5 @@ struct WelcomeView: View {
             try? await Task.sleep(nanoseconds: 600_000_000)
         }
         await action()
-    }
-}
-
-struct NetworkBadge: View {
-    let network: NetworkKind
-
-    var body: some View {
-        Text(network.rawValue.uppercased())
-            .font(.caption2.weight(.bold))
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(Capsule().fill(Color.purple.opacity(0.15)))
-            .foregroundStyle(.purple)
     }
 }

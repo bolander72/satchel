@@ -34,19 +34,17 @@ final class ExtensionBridge: ObservableObject {
         let layout = MSMessageTemplateLayout()
         switch kind {
         case .request:
-            layout.caption = "₿ Bitcoin payment request"
-            layout.subcaption = request.label ?? ""
-            layout.trailingCaption = request.amountSats.map { PaymentRequest.formatSats($0) } ?? "Any amount"
+            layout.image = CardImageRenderer.render(kind: .request, request: request)
+            layout.caption = "Tap to pay with Wizard Wallet"
         case .sent:
-            layout.caption = "₿ Payment sent"
-            layout.trailingCaption = request.amountSats.map { PaymentRequest.formatSats($0) } ?? ""
-            layout.subcaption = request.txid.map { "tx \($0.prefix(8))…" } ?? ""
+            layout.image = CardImageRenderer.render(kind: .receipt, request: request)
+            layout.caption = "Tap to view details"
         }
 
         let message = MSMessage(session: MSSession())
         message.url = components.url
         message.layout = layout
-        message.summaryText = layout.caption
+        message.summaryText = kind == .request ? "₿ Bitcoin payment request" : "₿ Payment sent"
 
         conversation.insert(message) { error in
             if let error { NSLog("card insert failed: \(error)") }

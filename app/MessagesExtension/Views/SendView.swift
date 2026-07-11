@@ -27,6 +27,22 @@ struct SendView: View {
         case fast = "Fast"
         var id: String { rawValue }
 
+        var eta: String {
+            switch self {
+            case .slow: return "~1 hour"
+            case .normal: return "~30 min"
+            case .fast: return "next block"
+            }
+        }
+
+        var icon: String {
+            switch self {
+            case .slow: return "tortoise.fill"
+            case .normal: return "figure.walk"
+            case .fast: return "hare.fill"
+            }
+        }
+
         func satPerVb(_ tiers: FeeTiers) -> UInt64 {
             switch self {
             case .slow: return max(tiers.hourFee, tiers.minimumFee)
@@ -39,11 +55,12 @@ struct SendView: View {
     var body: some View {
         NavigationStack {
             content
-                .navigationTitle("Send Bitcoin")
+                .navigationTitle(navigationTitle)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button(doneButtonTitle) { dismiss() }
+                            .font(.system(.body, design: .rounded).weight(.medium))
                     }
                 }
         }
@@ -54,6 +71,15 @@ struct SendView: View {
             }
         }
         .interactiveDismissDisabled(isMidFlight)
+    }
+
+    private var navigationTitle: String {
+        switch stage {
+        case .compose: return "Send Bitcoin"
+        case .review: return "Confirm"
+        case .broadcasting: return ""
+        case .sent: return "Sent"
+        }
     }
 
     private var doneButtonTitle: String {
@@ -76,9 +102,11 @@ struct SendView: View {
         case .review(let send):
             reviewSheet(send)
         case .broadcasting:
-            VStack(spacing: 12) {
-                ProgressView()
-                Text("Broadcasting…").foregroundStyle(.secondary)
+            VStack(spacing: 14) {
+                ProgressView().controlSize(.large).tint(Brand.orange)
+                Text("Broadcasting…")
+                    .font(.system(.callout, design: .rounded).weight(.medium))
+                    .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .sent(let txid, let details):
@@ -88,65 +116,162 @@ struct SendView: View {
 
     // MARK: - Compose
 
+    private var addressIsValid: Bool {
+        store.isValidAddress(address)
+    }
+
     private var composeForm: some View {
-        Form {
-            Section("To") {
-                TextField("Bitcoin address", text: $address, axis: .vertical)
-                    .font(.system(.footnote, design: .monospaced))
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-                if let prefill, prefill.address == address, let label = prefill.label, !label.isEmpty {
-                    Text(label).font(.caption).foregroundStyle(.secondary)
-                }
-            }
+        ScrollView {
+            VStack(spacing: 16) {
+                // Destination
+                VStack(alignment: .leading, spacing: 6) {
+                    fieldLabel("To")
+                    HStack(spacing: 8) {
+                        TextField("Bitcoin address", text: $address, axis: .vertical)
+                            .font(.system(.footnote, design: .monospaced))
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                            .lineLimit(2)
 
-            Section("Amount") {
-                TextField("Amount in sats", text: $amountText)
-                    .keyboardType(.numberPad)
-                if let sats = parsedAmount {
-                    Text("\(PaymentRequest.btcString(sats: sats)) BTC")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Text("Available: \(PaymentRequest.formatSats(store.balance.confirmedSats))")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+                        if address.isEmpty {
+                            Button {
+                                if let pasted = UIPasteboard.general.string {
+                                    address = pasted.trimmingCharacters(in: .whitespacesAndNewlines)
+                                }
+                            } label: {
+                                Text("Paste")
+                                    .font(.system(.footnote, design: .rounded).weight(.semibold))
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(Capsule().fill(Brand.orange.opacity(0.13)))
+                                    .foregroundStyle(Brand.orangeDeep)
+                            }
+                        } else {
+                            Image(systemName: addressIsValid ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                                .foregroundStyle(addressIsValid ? .green : .red)
+                                .contentTransition(.symbolEffect(.replace))
+                        }
+                    }
+                    .padding(14)
+                    .background(fieldBackground)
 
-            Section("Network fee") {
-                Picker("Speed", selection: $feeChoice) {
-                    ForEach(FeeChoice.allCases) { choice in
-                        Text("\(choice.rawValue) · \(choice.satPerVb(store.feeTiers)) sat/vB").tag(choice)
+                    if let prefill, prefill.address == address, let label = prefill.label, !label.isEmpty {
+                        Text("Requested by \(label)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(.leading, 4)
                     }
                 }
-                .pickerStyle(.menu)
-            }
 
-            if isLargeSend {
-                Section {
-                    Label(
-                        "This sends most of your balance. Double-check the address — Bitcoin payments can't be reversed.",
-                        systemImage: "exclamationmark.triangle.fill"
-                    )
-                    .font(.caption)
-                    .foregroundStyle(.orange)
+                // Amount
+                VStack(alignment: .leading, spacing: 6) {
+                    fieldLabel("Amount")
+                    VStack(spacing: 4) {
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            TextField("0", text: $amountText)
+                                .keyboardType(.numberPad)
+                                .font(.system(size: 30, weight: .bold, design: .rounded))
+                                .multilineTextAlignment(.center)
+                                .fixedSize(horizontal: true, vertical: false)
+                            Text("sats")
+                                .font(.system(.callout, design: .rounded).weight(.semibold))
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+
+                        if let sats = parsedAmount {
+                            Text("\(Format.btc(sats)) BTC")
+                                .font(.system(.caption, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 14)
+                    .background(fieldBackground)
+
+                    Text("Available: \(Format.sats(store.balance.confirmedSats)) sats")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 4)
                 }
-            }
 
-            Section {
+                // Fee
+                VStack(alignment: .leading, spacing: 6) {
+                    fieldLabel("Network fee")
+                    HStack(spacing: 8) {
+                        ForEach(FeeChoice.allCases) { choice in
+                            feeOption(choice)
+                        }
+                    }
+                }
+
+                if isLargeSend {
+                    InfoBanner(
+                        systemName: "exclamationmark.triangle.fill",
+                        text: "This sends most of your balance. Bitcoin payments can't be reversed — double-check the address."
+                    )
+                }
+
                 Button {
                     Task { await prepare() }
                 } label: {
                     if working {
-                        ProgressView().frame(maxWidth: .infinity)
+                        ProgressView().tint(.white)
                     } else {
                         Label("Review with Face ID", systemImage: "faceid")
-                            .frame(maxWidth: .infinity)
                     }
                 }
+                .buttonStyle(ProminentButtonStyle())
                 .disabled(!canReview || working)
+                .opacity(canReview ? 1 : 0.45)
+                .padding(.top, 4)
             }
+            .padding(20)
         }
+        .scrollDismissesKeyboard(.interactively)
+    }
+
+    private func fieldLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.system(.caption, design: .rounded).weight(.semibold))
+            .foregroundStyle(.secondary)
+            .textCase(.uppercase)
+            .padding(.leading, 4)
+    }
+
+    private var fieldBackground: some View {
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .fill(Color(.secondarySystemBackground))
+    }
+
+    private func feeOption(_ choice: FeeChoice) -> some View {
+        let selected = feeChoice == choice
+        return Button {
+            withAnimation(.spring(response: 0.25)) { feeChoice = choice }
+        } label: {
+            VStack(spacing: 3) {
+                Image(systemName: choice.icon)
+                    .font(.footnote.weight(.semibold))
+                Text(choice.rawValue)
+                    .font(.system(.footnote, design: .rounded).weight(.bold))
+                Text(choice.eta)
+                    .font(.system(size: 10, design: .rounded))
+                Text("\(choice.satPerVb(store.feeTiers)) sat/vB")
+                    .font(.system(size: 9, design: .monospaced))
+                    .opacity(0.7)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(selected ? AnyShapeStyle(Brand.subtleGradient) : AnyShapeStyle(Color(.secondarySystemBackground)))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(selected ? Brand.orange : .clear, lineWidth: 1.5)
+            )
+            .foregroundStyle(selected ? Brand.orangeDeep : .secondary)
+        }
+        .buttonStyle(.plain)
     }
 
     private var parsedAmount: UInt64? {
@@ -154,7 +279,7 @@ struct SendView: View {
     }
 
     private var canReview: Bool {
-        parsedAmount != nil && !address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        parsedAmount != nil && addressIsValid
     }
 
     private var isLargeSend: Bool {
@@ -172,7 +297,7 @@ struct SendView: View {
                 amountSats: sats,
                 feeRateSatPerVb: feeChoice.satPerVb(store.feeTiers)
             )
-            stage = .review(send)
+            withAnimation { stage = .review(send) }
         } catch {
             store.lastError = (error as? LocalizedError)?.errorDescription ?? "\(error)"
         }
@@ -181,43 +306,68 @@ struct SendView: View {
     // MARK: - Review
 
     private func reviewSheet(_ send: SignedSend) -> some View {
-        Form {
-            Section("Confirm payment") {
-                row("To", send.details.destinationAddress, monospaced: true)
-                row("Amount", PaymentRequest.formatSats(send.details.amountSats))
-                row("Network fee", PaymentRequest.formatSats(send.details.feeSats))
-                row("Total", PaymentRequest.formatSats(send.details.totalSats))
+        VStack(spacing: 20) {
+            VStack(spacing: 0) {
+                receiptRow("To", Format.shortAddress(send.details.destinationAddress, prefix: 14, suffix: 10), monospaced: true)
+                Divider().padding(.horizontal, 16)
+                receiptRow("Amount", "\(Format.sats(send.details.amountSats)) sats")
+                Divider().padding(.horizontal, 16)
+                receiptRow("Network fee", "\(Format.sats(send.details.feeSats)) sats")
+                Divider().padding(.horizontal, 16)
+                receiptRow("Total", "\(Format.sats(send.details.totalSats)) sats", emphasized: true)
             }
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color(.secondarySystemBackground))
+            )
 
-            Section {
-                Button {
-                    Task { await broadcast(send) }
-                } label: {
-                    Label("Send now", systemImage: "paperplane.fill")
-                        .frame(maxWidth: .infinity)
-                }
-                Button("Back", role: .cancel) { stage = .compose }
-                    .frame(maxWidth: .infinity)
+            Text("Signed and ready. Nothing is sent until you confirm.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Button {
+                Task { await broadcast(send) }
+            } label: {
+                Label("Send now", systemImage: "paperplane.fill")
             }
+            .buttonStyle(ProminentButtonStyle())
+
+            Button("Back") {
+                withAnimation { stage = .compose }
+            }
+            .font(.system(.body, design: .rounded).weight(.medium))
+            .foregroundStyle(.secondary)
+
+            Spacer(minLength: 0)
         }
+        .padding(20)
     }
 
-    private func row(_ title: String, _ value: String, monospaced: Bool = false) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title).font(.caption).foregroundStyle(.secondary)
+    private func receiptRow(_ title: String, _ value: String, monospaced: Bool = false, emphasized: Bool = false) -> some View {
+        HStack {
+            Text(title)
+                .font(.system(.subheadline, design: .rounded))
+                .foregroundStyle(.secondary)
+            Spacer()
             Text(value)
-                .font(monospaced ? .system(.footnote, design: .monospaced) : .body)
+                .font(
+                    monospaced
+                        ? .system(.footnote, design: .monospaced).weight(.medium)
+                        : .system(.subheadline, design: .rounded).weight(emphasized ? .bold : .semibold)
+                )
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 13)
     }
 
     private func broadcast(_ send: SignedSend) async {
-        stage = .broadcasting
+        withAnimation { stage = .broadcasting }
         do {
             let txid = try await store.broadcast(send)
-            stage = .sent(txid: txid, details: send.details)
+            withAnimation(.spring(response: 0.4)) { stage = .sent(txid: txid, details: send.details) }
         } catch {
             store.lastError = (error as? LocalizedError)?.errorDescription ?? "\(error)"
-            stage = .review(send)
+            withAnimation { stage = .review(send) }
         }
     }
 
@@ -225,13 +375,33 @@ struct SendView: View {
 
     private func sentView(txid: String, details: PreparedSend) -> some View {
         VStack(spacing: 16) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 48))
-                .foregroundStyle(.green)
-            Text("Sent \(PaymentRequest.formatSats(details.amountSats))")
-                .font(.headline)
-            Link("View transaction", destination: store.chain.explorerURL(txid: txid))
-                .font(.subheadline)
+            Spacer(minLength: 10)
+
+            ZStack {
+                Circle()
+                    .fill(Color.green.opacity(0.12))
+                    .frame(width: 84, height: 84)
+                Image(systemName: "checkmark")
+                    .font(.system(size: 38, weight: .bold, design: .rounded))
+                    .foregroundStyle(.green)
+            }
+            .transition(.scale.combined(with: .opacity))
+
+            VStack(spacing: 4) {
+                Text("Sent \(Format.sats(details.amountSats)) sats")
+                    .font(.system(.title3, design: .rounded).weight(.bold))
+                Text("On its way — usually confirms within the hour.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            Link(destination: store.chain.explorerURL(txid: txid)) {
+                HStack(spacing: 5) {
+                    Image(systemName: "safari")
+                    Text("View transaction")
+                }
+                .font(.system(.subheadline, design: .rounded).weight(.medium))
+            }
 
             Button {
                 let receipt = PaymentRequest(
@@ -243,13 +413,11 @@ struct SendView: View {
                 dismiss()
             } label: {
                 Label("Share receipt in chat", systemImage: "message.fill")
-                    .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .padding(.horizontal)
+            .buttonStyle(ProminentButtonStyle())
+
+            Spacer(minLength: 10)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding()
+        .padding(20)
     }
 }

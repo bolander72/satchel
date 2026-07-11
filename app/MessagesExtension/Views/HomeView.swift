@@ -11,45 +11,25 @@ struct HomeView: View {
     var body: some View {
         VStack(spacing: 0) {
             balanceHeader
-                .padding(.top, 12)
-                .padding(.horizontal)
+                .padding(.top, bridge.isCompact ? 10 : 20)
+                .padding(.horizontal, 20)
+
+            actionRow
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
 
             if !store.backupInICloud {
-                Label(
-                    "iCloud unavailable — this wallet is only on this device. Sign in to iCloud to protect it.",
-                    systemImage: "icloud.slash"
+                InfoBanner(
+                    systemName: "icloud.slash.fill",
+                    text: "iCloud unavailable — this wallet lives only on this device."
                 )
-                .font(.caption2)
-                .foregroundStyle(.orange)
-                .padding(.horizontal)
-                .padding(.top, 6)
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
             }
-
-            HStack(spacing: 12) {
-                Button {
-                    bridge.requestExpanded()
-                    showReceive = true
-                } label: {
-                    Label("Receive", systemImage: "arrow.down.left")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-
-                Button {
-                    bridge.requestExpanded()
-                    showSend = true
-                } label: {
-                    Label("Send", systemImage: "arrow.up.right")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .disabled(store.balance.totalSats == 0)
-            }
-            .controlSize(.regular)
-            .padding()
 
             if !bridge.isCompact {
-                transactionList
+                activity
+                    .padding(.top, 18)
             }
 
             Spacer(minLength: 0)
@@ -64,7 +44,6 @@ struct HomeView: View {
             SendView(store: store, bridge: bridge, prefill: card.request)
         }
         .task { await store.refresh() }
-        .refreshable { await store.refresh() }
     }
 
     /// Tapped payment-request cards open Send prefilled; receipts are ignored here.
@@ -78,81 +57,171 @@ struct HomeView: View {
         )
     }
 
+    // MARK: - Balance
+
     private var balanceHeader: some View {
-        VStack(spacing: 4) {
-            HStack(spacing: 6) {
-                Text(PaymentRequest.formatSats(store.balance.totalSats))
-                    .font(.system(.title2, design: .rounded).weight(.bold))
+        VStack(spacing: 5) {
+            HStack(spacing: 5) {
+                Text("Balance")
+                    .font(.system(.caption, design: .rounded).weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+                NetworkBadge(network: store.chain.network)
+            }
+
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(Format.sats(store.balance.totalSats))
+                    .font(.system(size: bridge.isCompact ? 30 : 38, weight: .bold, design: .rounded))
+                    .foregroundStyle(Brand.gradient)
+                    .contentTransition(.numericText())
+                    .animation(.spring(response: 0.4), value: store.balance.totalSats)
+                Text("sats")
+                    .font(.system(.headline, design: .rounded).weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack(spacing: 10) {
+                Text("\(Format.btc(store.balance.totalSats)) BTC")
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(.secondary)
+
+                if store.balance.pendingSats > 0 {
+                    HStack(spacing: 3) {
+                        Image(systemName: "clock.fill").font(.system(size: 8))
+                        Text("\(Format.sats(store.balance.pendingSats)) pending")
+                    }
+                    .font(.system(.caption2, design: .rounded).weight(.semibold))
+                    .foregroundStyle(Brand.orangeDeep)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(Brand.orange.opacity(0.12)))
+                }
+
                 if store.isSyncing {
-                    ProgressView().controlSize(.small)
+                    ProgressView().controlSize(.mini)
                 }
             }
-            HStack(spacing: 8) {
-                Text("\(PaymentRequest.btcString(sats: store.balance.totalSats)) BTC")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                if store.balance.pendingSats > 0 {
-                    Text("\(PaymentRequest.formatSats(store.balance.pendingSats)) pending")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var actionRow: some View {
+        HStack(spacing: 12) {
+            Button {
+                bridge.requestExpanded()
+                showReceive = true
+            } label: {
+                Label("Receive", systemImage: "arrow.down.left")
+            }
+            .buttonStyle(ProminentButtonStyle())
+
+            Button {
+                bridge.requestExpanded()
+                showSend = true
+            } label: {
+                Label("Send", systemImage: "arrow.up.right")
+            }
+            .buttonStyle(QuietButtonStyle())
+            .disabled(store.balance.totalSats == 0)
+            .opacity(store.balance.totalSats == 0 ? 0.45 : 1)
+        }
+    }
+
+    // MARK: - Activity
+
+    private var activity: some View {
+        Group {
+            if store.transactions.isEmpty {
+                emptyActivity
+            } else {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        HStack {
+                            Text("Activity")
+                                .font(.system(.caption, design: .rounded).weight(.semibold))
+                                .foregroundStyle(.secondary)
+                                .textCase(.uppercase)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 6)
+
+                        ForEach(store.transactions) { tx in
+                            TransactionRow(tx: tx, explorerURL: store.chain.explorerURL(txid: tx.txid))
+                            if tx.id != store.transactions.last?.id {
+                                Divider().padding(.leading, 68)
+                            }
+                        }
+                    }
                 }
-                if store.chain.network != .bitcoin {
-                    NetworkBadge(network: store.chain.network)
-                }
+                .refreshable { await store.refresh() }
             }
         }
     }
 
-    private var transactionList: some View {
-        Group {
-            if store.transactions.isEmpty {
-                VStack(spacing: 6) {
-                    Text("No activity yet")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Text("Tap Receive to share an address in this chat.")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.top, 24)
-            } else {
-                List(store.transactions) { tx in
-                    TransactionRow(tx: tx, explorerURL: store.chain.explorerURL(txid: tx.txid))
-                }
-                .listStyle(.plain)
-            }
+    private var emptyActivity: some View {
+        VStack(spacing: 10) {
+            IconBubble(systemName: "sparkles", size: 46)
+            Text("No activity yet")
+                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+            Text("Tap **Receive** to share a payment\nrequest in this conversation.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
         }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 28)
     }
 }
 
 struct TransactionRow: View {
+    @Environment(\.openURL) private var openURL
     let tx: WalletTransaction
     let explorerURL: URL
 
     var body: some View {
-        HStack {
-            Image(systemName: tx.direction == .incoming ? "arrow.down.left.circle.fill" : "arrow.up.right.circle.fill")
-                .foregroundStyle(tx.direction == .incoming ? .green : .orange)
+        Button {
+            openURL(explorerURL)
+        } label: {
+            HStack(spacing: 12) {
+                IconBubble(
+                    systemName: tx.direction == .incoming ? "arrow.down.left" : "arrow.up.right",
+                    tint: tx.direction == .incoming ? .green : Brand.orange
+                )
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(tx.direction == .incoming ? "Received" : "Sent")
-                    .font(.subheadline.weight(.medium))
-                Text(tx.confirmed ? (tx.timestamp?.formatted(date: .abbreviated, time: .shortened) ?? "Confirmed") : "Pending confirmation")
-                    .font(.caption)
-                    .foregroundStyle(tx.confirmed ? Color.secondary : Color.orange)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(tx.direction == .incoming ? "Received" : "Sent")
+                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                        .foregroundStyle(.primary)
+                    if tx.confirmed {
+                        Text(tx.timestamp.map { Format.relative($0) } ?? "Confirmed")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        HStack(spacing: 3) {
+                            Image(systemName: "clock.fill").font(.system(size: 8))
+                            Text("Pending")
+                        }
+                        .font(.system(.caption, design: .rounded).weight(.medium))
+                        .foregroundStyle(Brand.orangeDeep)
+                    }
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text((tx.direction == .incoming ? "+" : "−") + Format.sats(tx.amountSats))
+                        .font(.system(.subheadline, design: .rounded).weight(.bold))
+                        .foregroundStyle(tx.direction == .incoming ? .green : .primary)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.quaternary)
+                }
             }
-
-            Spacer()
-
-            VStack(alignment: .trailing, spacing: 2) {
-                Text((tx.direction == .incoming ? "+" : "−") + PaymentRequest.formatSats(tx.amountSats))
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(tx.direction == .incoming ? .green : .primary)
-                Link("View", destination: explorerURL)
-                    .font(.caption)
-            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
         }
-        .padding(.vertical, 2)
+        .buttonStyle(.plain)
     }
 }

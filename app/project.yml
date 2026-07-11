@@ -68,6 +68,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.taprootwizards.imessagewallet.MessagesExtension
         PRODUCT_NAME: Wizard Wallet
+        ASSETCATALOG_COMPILER_APPICON_NAME: iMessage App Icon
     info:
       path: MessagesExtension/Info.plist
       properties:
