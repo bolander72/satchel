@@ -75,6 +75,80 @@ final class PaymentRequestTests: XCTestCase {
         XCTAssertEqual(PaymentRequest.btcString(sats: 100_000_000), "1.00000000")
         XCTAssertEqual(PaymentRequest.btcString(sats: 123_456_789), "1.23456789")
     }
+
+    func testParseBip21URI() {
+        let parsed = PaymentRequest.parse(
+            "bitcoin:BC1QAR0SRRR7XFKVY5L643LYDNW9RE59GTZZWF5MDQ?amount=0.00021&label=Coffee%20Fund"
+        )
+        XCTAssertEqual(parsed?.address, "BC1QAR0SRRR7XFKVY5L643LYDNW9RE59GTZZWF5MDQ")
+        XCTAssertEqual(parsed?.amountSats, 21_000)
+        XCTAssertEqual(parsed?.label, "Coffee Fund")
+    }
+
+    func testParseSchemeCaseInsensitiveAndNoParams() {
+        XCTAssertEqual(
+            PaymentRequest.parse("BITCOIN:tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx")?.address,
+            "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx"
+        )
+        XCTAssertNil(PaymentRequest.parse("bitcoin:")?.address)
+    }
+
+    func testParseBareAddressAndGarbage() {
+        XCTAssertEqual(
+            PaymentRequest.parse("  tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx \n")?.address,
+            "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx"
+        )
+        XCTAssertNil(PaymentRequest.parse("hello world"))
+        XCTAssertNil(PaymentRequest.parse("short"))
+        XCTAssertNil(PaymentRequest.parse(""))
+    }
+
+    func testParseWholeBtcAmount() {
+        XCTAssertEqual(
+            PaymentRequest.parse("bitcoin:tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx?amount=1")?.amountSats,
+            100_000_000
+        )
+    }
+}
+
+final class BackupVersioningTests: XCTestCase {
+    private func makeSecrets(hint: UInt32) -> WalletSecrets {
+        WalletSecrets(
+            mnemonic: "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+            network: .signet,
+            scriptType: .bip84,
+            receiveIndexHint: hint,
+            createdAt: Date(timeIntervalSince1970: 1_751_000_000)
+        )
+    }
+
+    /// Corrupting the main envelope must fall back to the previous
+    /// generation instead of losing the wallet. (Test env has no iCloud,
+    /// so this exercises the local-fallback path end to end.)
+    func testCorruptMainFallsBackToPreviousEnvelope() async throws {
+        let store = ICloudBackupStore()
+        let key = Data(repeating: 5, count: 32)
+
+        let older = try BackupCrypto.seal(makeSecrets(hint: 1), inputKeyMaterial: key, keyProvider: "t")
+        try store.save(older)
+        let newer = try BackupCrypto.seal(makeSecrets(hint: 2), inputKeyMaterial: key, keyProvider: "t")
+        try store.save(newer) // `older` becomes the .previous copy
+
+        // Sanity: intact main loads the newer envelope.
+        let loaded = try await store.load()
+        XCTAssertEqual(loaded, newer)
+
+        // Corrupt the main file in place.
+        let mainURL = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("WalletBackupLocal")
+            .appendingPathComponent(ICloudBackupStore.fileName)
+        try Data("not json".utf8).write(to: mainURL)
+
+        let recovered = try await store.load()
+        XCTAssertEqual(recovered, older)
+        XCTAssertTrue(store.backupExists())
+    }
 }
 
 final class BackupStoreTests: XCTestCase {

@@ -74,10 +74,10 @@ users doing this behind shared CGNAT IPs will eventually hit rate limits.
 The old plan (route through `server/`) is **rejected** under the
 no-server policy. On-device mitigations, in order:
 
-1. **Multi-endpoint failover** in `ChainConfig`: ship several public
-   Esplora-compatible base URLs (mempool.space, blockstream.info, etc.)
-   and rotate on HTTP 429/5xx. Pure client change; no third party gains a
-   privileged position.
+1. **Multi-endpoint failover** in `ChainConfig` — ✅ implemented:
+   mainnet ships an ordered endpoint list (mempool.space →
+   blockstream.info) and sync/broadcast/status checks rotate on
+   connectivity failures. No third party gains a privileged position.
 2. **Sync discipline** (already in place): incremental
    sync-with-revealed-SPKs for normal opens; full scans only on restore.
 3. **User-configurable endpoint** (advanced setting, later): sovereign

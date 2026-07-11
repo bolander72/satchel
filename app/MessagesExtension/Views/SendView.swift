@@ -22,6 +22,7 @@ struct SendView: View {
     @State private var working = false
     /// Send Max: sweep every UTXO; the fee comes out of the total.
     @State private var sendMax = false
+    @State private var showScanner = false
 
     enum FeeChoice: String, CaseIterable, Identifiable {
         case slow = "Slow"
@@ -72,7 +73,26 @@ struct SendView: View {
                 if let sats = prefill.amountSats { amountText = String(sats) }
             }
         }
+        .sheet(isPresented: $showScanner) {
+            QRScannerSheet { code in
+                apply(scannedOrPasted: code)
+            }
+        }
         .interactiveDismissDisabled(isMidFlight)
+    }
+
+    /// Accepts a bare address or a BIP21 URI (from the scanner, the Paste
+    /// button, or typed into the field) and fills the form from it.
+    private func apply(scannedOrPasted raw: String) {
+        guard let parsed = PaymentRequest.parse(raw) else {
+            address = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            return
+        }
+        address = parsed.address
+        if let sats = parsed.amountSats, sats > 0 {
+            amountText = String(sats)
+            sendMax = false
+        }
     }
 
     private var navigationTitle: String {
@@ -137,8 +157,19 @@ struct SendView: View {
 
                         if address.isEmpty {
                             Button {
+                                showScanner = true
+                            } label: {
+                                Image(systemName: "qrcode.viewfinder")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .padding(6)
+                                    .background(Circle().fill(Brand.orange.opacity(0.13)))
+                                    .foregroundStyle(Brand.orangeDeep)
+                            }
+                            .accessibilityLabel("Scan a Bitcoin QR code")
+
+                            Button {
                                 if let pasted = UIPasteboard.general.string {
-                                    address = pasted.trimmingCharacters(in: .whitespacesAndNewlines)
+                                    apply(scannedOrPasted: pasted)
                                 }
                             } label: {
                                 Text("Paste")
@@ -156,6 +187,13 @@ struct SendView: View {
                     }
                     .padding(14)
                     .background(fieldBackground)
+                    .onChange(of: address) { _, newValue in
+                        // Typing/pasting a full BIP21 URI into the field
+                        // normalizes it to address + amount.
+                        if newValue.lowercased().hasPrefix("bitcoin:") {
+                            apply(scannedOrPasted: newValue)
+                        }
+                    }
 
                     if let prefill, prefill.address == address, let label = prefill.label, !label.isEmpty {
                         Text("Requested by \(label)")

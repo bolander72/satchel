@@ -9,6 +9,9 @@ import Foundation
 /// file into iCloud automatically the next time it becomes reachable.
 public struct ICloudBackupStore: Sendable {
     public static let fileName = "wallet-backup.v1.json"
+    /// The prior envelope, kept on every rewrite so one bad seal (or an
+    /// interrupted write on a future OS) can never orphan the wallet.
+    public static let previousFileName = "wallet-backup.v1.previous.json"
 
     private let containerIdentifier: String?
     private var fileManager: FileManager { FileManager.default }
@@ -45,10 +48,13 @@ public struct ICloudBackupStore: Sendable {
 
     public func backupExists() -> Bool {
         if let icloud = icloudURL(),
-           fileManager.fileExists(atPath: icloud.path) || fileManager.isUbiquitousItem(at: icloud) {
+           fileManager.fileExists(atPath: icloud.path) || fileManager.isUbiquitousItem(at: icloud)
+               || fileManager.fileExists(atPath: previousURL(for: icloud).path) {
             return true
         }
-        return fileManager.fileExists(atPath: fallbackURL().path)
+        let fallback = fallbackURL()
+        return fileManager.fileExists(atPath: fallback.path)
+            || fileManager.fileExists(atPath: previousURL(for: fallback).path)
     }
 
     public func load() async throws -> BackupEnvelope {
@@ -60,15 +66,21 @@ public struct ICloudBackupStore: Sendable {
                     try await Task.sleep(nanoseconds: 250_000_000)
                 }
             }
+            if let envelope = decodeWithPreviousFallback(main: icloud) {
+                return envelope
+            }
             if fileManager.fileExists(atPath: icloud.path) {
-                return try decode(at: icloud)
+                throw WalletKitError.backupCorrupted("backup and its previous copy are both unreadable")
             }
         }
         let fallback = fallbackURL()
-        guard fileManager.fileExists(atPath: fallback.path) else {
-            throw WalletKitError.backupNotFound
+        if let envelope = decodeWithPreviousFallback(main: fallback) {
+            return envelope
         }
-        return try decode(at: fallback)
+        if fileManager.fileExists(atPath: fallback.path) {
+            throw WalletKitError.backupCorrupted("backup and its previous copy are both unreadable")
+        }
+        throw WalletKitError.backupNotFound
     }
 
     /// Writes to iCloud when reachable, else the local fallback. A
@@ -82,10 +94,13 @@ public struct ICloudBackupStore: Sendable {
         let data = try encoder.encode(envelope)
 
         if let icloud = icloudURL() {
+            keepPreviousCopy(of: icloud)
             try coordinatedWrite(data, to: icloud)
             try? fileManager.removeItem(at: fallbackURL())
         } else {
-            try data.write(to: fallbackURL(), options: .atomic)
+            let fallback = fallbackURL()
+            keepPreviousCopy(of: fallback)
+            try data.write(to: fallback, options: .atomic)
         }
     }
 
@@ -97,6 +112,30 @@ public struct ICloudBackupStore: Sendable {
     }
 
     // MARK: - Internals
+
+    private func previousURL(for url: URL) -> URL {
+        url.deletingLastPathComponent().appendingPathComponent(Self.previousFileName)
+    }
+
+    private func keepPreviousCopy(of url: URL) {
+        guard fileManager.fileExists(atPath: url.path) else { return }
+        let previous = previousURL(for: url)
+        try? fileManager.removeItem(at: previous)
+        try? fileManager.copyItem(at: url, to: previous)
+    }
+
+    /// Main file first; a corrupt or missing main falls back to the
+    /// previous-generation envelope. Nil only when neither decodes.
+    private func decodeWithPreviousFallback(main: URL) -> BackupEnvelope? {
+        if fileManager.fileExists(atPath: main.path), let envelope = try? decode(at: main) {
+            return envelope
+        }
+        let previous = previousURL(for: main)
+        if fileManager.fileExists(atPath: previous.path), let envelope = try? decode(at: previous) {
+            return envelope
+        }
+        return nil
+    }
 
     private func decode(at url: URL) throws -> BackupEnvelope {
         let data = try Data(contentsOf: url)

@@ -203,25 +203,31 @@ struct CardStatusView: View {
 
     private func check() async {
         let probe = StatusProbe()
-        do {
-            if let txid = card.request.txid {
-                let tx = try await probe.txConfirmation(txid: txid, esploraURL: store.chain.esploraURL)
-                status = tx.confirmed ? .txConfirmed(when: tx.blockTime) : .txPending
-            } else {
-                let activity = try await probe.addressActivity(
-                    address: card.request.address,
-                    esploraURL: store.chain.esploraURL
-                )
-                if activity.hasConfirmed {
-                    status = .paidConfirmed(sats: activity.confirmedReceivedSats)
-                } else if activity.hasPending {
-                    status = .inMempool(sats: activity.mempoolReceivedSats)
+        // Same-chain endpoints; try each until one answers.
+        for (index, esplora) in store.chain.esploraURLs.enumerated() {
+            do {
+                if let txid = card.request.txid {
+                    let tx = try await probe.txConfirmation(txid: txid, esploraURL: esplora)
+                    status = tx.confirmed ? .txConfirmed(when: tx.blockTime) : .txPending
                 } else {
-                    status = .awaitingPayment
+                    let activity = try await probe.addressActivity(
+                        address: card.request.address,
+                        esploraURL: esplora
+                    )
+                    if activity.hasConfirmed {
+                        status = .paidConfirmed(sats: activity.confirmedReceivedSats)
+                    } else if activity.hasPending {
+                        status = .inMempool(sats: activity.mempoolReceivedSats)
+                    } else {
+                        status = .awaitingPayment
+                    }
+                }
+                return
+            } catch {
+                if index == store.chain.esploraURLs.count - 1 {
+                    status = .unknown("Check your connection and try again.")
                 }
             }
-        } catch {
-            status = .unknown("Check your connection and try again.")
         }
     }
 }

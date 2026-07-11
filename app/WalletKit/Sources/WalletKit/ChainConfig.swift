@@ -1,38 +1,50 @@
 import Foundation
 
-/// Which chain backend the client talks to. V0 default is a public
-/// Esplora-compatible API queried directly from the device (the privacy
-/// choice documented in docs/decisions/0003-chain-api.md); flipping to our
-/// own backend is a URL change only.
+/// Which chain backend the client talks to. V0 default is public
+/// Esplora-compatible APIs queried directly from the device (the privacy
+/// choice documented in docs/decisions/0003-chain-api.md); there is no
+/// Taproot Wizards server anywhere in the path.
 public struct ChainConfig: Sendable {
     public var network: NetworkKind
-    /// Esplora-compatible base URL used by BDK for sync + broadcast.
-    public var esploraURL: URL
+    /// Ordered, same-chain Esplora endpoints: first is primary, the rest
+    /// are failover for outages/rate limits. They MUST all serve the same
+    /// chain — the wallet's local cache is keyed by the primary's host, and
+    /// updates from any listed endpoint are applied to that one cache.
+    public var esploraURLs: [URL]
     /// Optional mempool.space-style recommended-fees endpoint.
     public var feesURL: URL?
     /// Block explorer for "view transaction" links.
     public var explorerTxBase: URL
 
-    public init(network: NetworkKind, esploraURL: URL, feesURL: URL?, explorerTxBase: URL) {
+    public var esploraURL: URL { esploraURLs[0] }
+
+    public init(network: NetworkKind, esploraURLs: [URL], feesURL: URL?, explorerTxBase: URL) {
+        precondition(!esploraURLs.isEmpty, "at least one esplora endpoint required")
         self.network = network
-        self.esploraURL = esploraURL
+        self.esploraURLs = esploraURLs
         self.feesURL = feesURL
         self.explorerTxBase = explorerTxBase
     }
 
     public static let mainnet = ChainConfig(
         network: .bitcoin,
-        esploraURL: URL(string: "https://mempool.space/api")!,
+        esploraURLs: [
+            URL(string: "https://mempool.space/api")!,
+            URL(string: "https://blockstream.info/api")!,
+        ],
         feesURL: URL(string: "https://mempool.space/api/v1/fees/recommended")!,
         explorerTxBase: URL(string: "https://mempool.space/tx")!
     )
 
     /// Standard signet (mempool.space). Faucets: signetfaucet.com and
     /// others — most are open, unlike Mutinynet's authenticated faucet.
-    /// Blocks average ~10 minutes.
+    /// Blocks average ~10 minutes. (No second public signet Esplora worth
+    /// trusting today; the failover list is a list of one.)
     public static let signet = ChainConfig(
         network: .signet,
-        esploraURL: URL(string: "https://mempool.space/signet/api")!,
+        esploraURLs: [
+            URL(string: "https://mempool.space/signet/api")!
+        ],
         feesURL: URL(string: "https://mempool.space/signet/api/v1/fees/recommended")!,
         explorerTxBase: URL(string: "https://mempool.space/signet/tx")!
     )

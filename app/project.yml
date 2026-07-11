@@ -77,6 +77,8 @@ targets:
         NSFaceIDUsageDescription: >-
           Face ID protects your Bitcoin wallet: it's required to create,
           unlock, and send from your wallet.
+        NSCameraUsageDescription: >-
+          The camera is used to scan Bitcoin QR codes when sending a payment.
         NSExtension:
           NSExtensionPointIdentifier: com.apple.message-payload-provider
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).MessagesViewController

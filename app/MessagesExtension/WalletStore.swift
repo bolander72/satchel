@@ -129,9 +129,10 @@ final class WalletStore: ObservableObject {
         isSyncing = true
         defer { isSyncing = false }
 
-        let esplora = chain.esploraURL
         do {
-            try await Self.offMain { try engine.sync(esploraURL: esplora, fullScan: fullScan) }
+            try await withEsploraFailover { esplora in
+                try await Self.offMain { try engine.sync(esploraURL: esplora, fullScan: fullScan) }
+            }
         } catch {
             // Sync failures are non-fatal: show cached state plus a notice.
             report(error)
@@ -195,10 +196,11 @@ final class WalletStore: ObservableObject {
         guard let engine else { throw WalletKitError.internalError("wallet not ready") }
         try await faceID.authenticate(reason: "Approve the higher network fee")
         let rate = max(feeTiers.fastestFee, feeTiers.minimumFee)
-        let esplora = chain.esploraURL
-        let newTxid = try await Self.offMain {
-            let bumped = try engine.createFeeBump(txid: txid, feeRateSatPerVb: rate)
-            return try engine.broadcast(bumped, esploraURL: esplora)
+        let bumped = try await Self.offMain {
+            try engine.createFeeBump(txid: txid, feeRateSatPerVb: rate)
+        }
+        let newTxid = try await withEsploraFailover { esplora in
+            try await Self.offMain { try engine.broadcast(bumped, esploraURL: esplora) }
         }
         await refresh()
         return newTxid
@@ -229,10 +231,29 @@ final class WalletStore: ObservableObject {
 
     func broadcast(_ send: SignedSend) async throws -> String {
         guard let engine else { throw WalletKitError.internalError("wallet not ready") }
-        let esplora = chain.esploraURL
-        let txid = try await Self.offMain { try engine.broadcast(send, esploraURL: esplora) }
+        let txid = try await withEsploraFailover { esplora in
+            try await Self.offMain { try engine.broadcast(send, esploraURL: esplora) }
+        }
         await refresh()
         return txid
+    }
+
+    /// Runs `operation` against each same-chain Esplora endpoint in order,
+    /// moving on only for connectivity failures (rate limits, outages).
+    /// Any other error is the operation's own problem and surfaces as-is.
+    private func withEsploraFailover<T>(
+        _ operation: (URL) async throws -> T
+    ) async throws -> T {
+        for (index, url) in chain.esploraURLs.enumerated() {
+            do {
+                return try await operation(url)
+            } catch let error as WalletKitError {
+                guard case .networkUnreachable = error, index < chain.esploraURLs.count - 1 else {
+                    throw error
+                }
+            }
+        }
+        throw WalletKitError.networkUnreachable
     }
 
     // MARK: - Key providers
