@@ -28,6 +28,11 @@ existing trusted device or the device passcode to join. So the V0 threat model
 equals "attacker who fully controls your Apple ID *and* knows your device
 passcode" — the same bar as Apple Pay card provisioning.
 
+**Auth model (ADR 0004, auto-wallet):** Face ID gates sending and seed
+reveal only; balance visibility and receiving require just the unlocked
+device, and a device-local keychain cache of the secrets makes normal opens
+promptless. The iCloud envelope remains the cross-device source of truth.
+
 What it does **not** give us: cryptographic enforcement that *sending* requires
 biometrics. Face ID before create/unlock/send is enforced at the app layer
 (`LAContext`, `deviceOwnerAuthentication` — passcode fallback allowed).

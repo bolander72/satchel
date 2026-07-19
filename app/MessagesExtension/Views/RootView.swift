@@ -10,12 +10,12 @@ struct RootView: View {
             switch store.phase {
             case .loading:
                 ProgressView()
-            case .welcome(let hasBackup):
-                WelcomeView(store: store, bridge: bridge, hasBackup: hasBackup)
             case .working(let message):
                 WorkingView(message: message)
             case .ready:
                 HomeView(store: store, bridge: bridge)
+            case .setupFailed(let message):
+                SetupFailedView(store: store, message: message)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -34,13 +34,15 @@ struct RootView: View {
     }
 }
 
+/// Shown only during first-ever setup or a fresh-device restore — normal
+/// opens go straight to the wallet (ADR 0004: there is no wallet ceremony).
 struct WorkingView: View {
     let message: String
 
     var body: some View {
         VStack(spacing: 14) {
+            BitcoinMark(size: 52)
             ProgressView()
-                .controlSize(.large)
                 .tint(Brand.orange)
             Text(message)
                 .font(.system(.callout, design: .rounded).weight(.medium))
@@ -49,69 +51,33 @@ struct WorkingView: View {
     }
 }
 
-struct WelcomeView: View {
+/// Auto-setup could not complete (keychain unavailable, passkey assertion
+/// failed on a fresh device, …). The only screen with a manual button.
+struct SetupFailedView: View {
     @ObservedObject var store: WalletStore
-    @ObservedObject var bridge: ExtensionBridge
-    let hasBackup: Bool
+    let message: String
 
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer(minLength: 12)
+        VStack(spacing: 14) {
+            IconBubble(systemName: "exclamationmark.triangle.fill", tint: .orange, size: 56)
 
-            BitcoinMark(size: bridge.isCompact ? 52 : 72)
-                .padding(.bottom, bridge.isCompact ? 10 : 18)
+            Text("Couldn't open your wallet")
+                .font(.system(.headline, design: .rounded).weight(.bold))
 
-            Text(hasBackup ? "Welcome back" : "Bitcoin, right here in Messages")
-                .font(.system(bridge.isCompact ? .headline : .title2, design: .rounded).weight(.bold))
-                .multilineTextAlignment(.center)
-
-            if !bridge.isCompact {
-                Text(
-                    hasBackup
-                        ? "Your wallet backup is ready. Unlock it with Face ID."
-                        : "One tap. No seed phrases, no sign-ups.\nBacked up privately to your iCloud."
-                )
-                .font(.subheadline)
+            Text(message)
+                .font(.footnote)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-                .padding(.top, 6)
                 .padding(.horizontal, 8)
-            }
 
             Button {
-                Task { await expandThen { hasBackup ? await store.restoreWallet() : await store.createWallet() } }
+                Task { await store.retrySetup() }
             } label: {
-                Label(
-                    hasBackup ? "Unlock with Face ID" : "Create Bitcoin Wallet",
-                    systemImage: "faceid"
-                )
+                Label("Try again", systemImage: "arrow.clockwise")
             }
             .buttonStyle(ProminentButtonStyle())
-            .padding(.top, bridge.isCompact ? 14 : 22)
-
-            HStack(spacing: 6) {
-                Image(systemName: "lock.fill")
-                    .font(.system(size: 9, weight: .bold))
-                Text("Keys never leave your device")
-                    .font(.system(.caption2, design: .rounded).weight(.medium))
-                NetworkBadge(network: store.chain.network)
-            }
-            .foregroundStyle(.tertiary)
-            .padding(.top, 12)
-
-            Spacer(minLength: 12)
+            .padding(.top, 6)
         }
         .padding(.horizontal, 28)
-    }
-
-    /// Face ID cannot survive a compact→expanded transition happening
-    /// underneath it (LAError -4 systemCancel), so expand first, let the
-    /// Messages presentation settle, then start the authenticated flow.
-    private func expandThen(_ action: @escaping () async -> Void) async {
-        if bridge.isCompact {
-            bridge.requestExpanded()
-            try? await Task.sleep(nanoseconds: 600_000_000)
-        }
-        await action()
     }
 }

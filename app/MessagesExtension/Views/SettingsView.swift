@@ -75,6 +75,21 @@ struct SettingsView: View {
 
             LabeledContent("Backup encryption", value: store.backupKeyProviderName)
 
+            if store.canUpgradeToPasskey {
+                Button {
+                    Task {
+                        do {
+                            try await store.upgradeToPasskeyProtection()
+                            Haptics.success()
+                        } catch {
+                            store.lastError = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+                        }
+                    }
+                } label: {
+                    Label("Upgrade to passkey protection", systemImage: "person.badge.key.fill")
+                }
+            }
+
             Button {
                 showSecurityExplainer = true
             } label: {
@@ -153,8 +168,8 @@ struct SecurityExplainerView: View {
 
                     explainerCard(
                         icon: "faceid",
-                        title: "Face ID guards every action",
-                        body: "Creating, unlocking, sending, and revealing the recovery phrase all require Face ID (or your device passcode)."
+                        title: "Face ID guards your money",
+                        body: "Sending bitcoin and revealing the recovery phrase always require Face ID (or your device passcode). Checking your balance and receiving don't — like a mailbox, anyone can drop money in, only you can take it out."
                     )
 
                     explainerCard(

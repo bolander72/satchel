@@ -64,13 +64,12 @@ revealed, so index hints stay current and rewrites are unlinkable.
 
 ## Flows
 
-### Create
-1. Face ID (`deviceOwnerAuthentication`) →
-2. `WalletEngine.generateSecrets` (BIP39 on device) →
-3. engine boots on a local sqlite cache →
-4. random 32-byte key created in **synced** iCloud Keychain →
-5. secrets sealed → envelope written to iCloud Drive →
-6. Home shows a fresh receive address flow.
+### Open (auto-wallet, ADR 0004)
+First ever open: generate BIP39 seed → seal with the silent synced-keychain
+key → envelope to iCloud Drive → secrets cached in a device-only keychain
+item → Home. Every later open: load the local cache, zero prompts. Fresh
+device: restore from the envelope (silent for keychain-sealed; one passkey
+assertion for PRF-sealed). No Create button exists.
 
 ### Receive
 `revealNextAddress` → backup resealed with new index hint → BIP21 URI + QR →
