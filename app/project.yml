@@ -45,6 +45,14 @@ targets:
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         ITSAppUsesNonExemptEncryption: false
+        # iOS resolves an extension's privacy prompts through the
+        # CONTAINING app — these must mirror the extension's strings or
+        # camera/Face ID requests silently fail inside Messages.
+        NSCameraUsageDescription: >-
+          The camera is used to scan Bitcoin QR codes when sending a payment.
+        NSFaceIDUsageDescription: >-
+          Face ID protects your Bitcoin wallet: it's required to send
+          bitcoin and reveal your recovery phrase.
     entitlements:
       path: HostApp/Satchel.entitlements
       properties:
