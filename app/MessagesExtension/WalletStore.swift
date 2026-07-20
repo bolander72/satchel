@@ -76,6 +76,31 @@ final class WalletStore: ObservableObject {
         await bootstrap()
     }
 
+    // MARK: - Live refresh
+
+    private var autoRefreshTask: Task<Void, Never>?
+    private var hasLoadedOnce = false
+
+    /// Polls the chain every few seconds while the extension is on screen,
+    /// so incoming payments appear without closing and reopening. Started
+    /// on willBecomeActive, stopped on willResignActive — never runs in
+    /// the background (extensions don't have one).
+    func startAutoRefresh() {
+        guard autoRefreshTask == nil else { return }
+        autoRefreshTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 12_000_000_000)
+                guard !Task.isCancelled else { break }
+                await self?.refresh()
+            }
+        }
+    }
+
+    func stopAutoRefresh() {
+        autoRefreshTask?.cancel()
+        autoRefreshTask = nil
+    }
+
     /// Silent create-or-restore. The only prompt that can appear is a
     /// passkey assertion, and only when restoring a passkey-sealed backup
     /// onto a fresh device.
@@ -185,11 +210,18 @@ final class WalletStore: ObservableObject {
             // Sync failures are non-fatal: show cached state plus a notice.
             report(error)
         }
+        let previousTotal = balance.totalSats
         balance = engine.balance()
         transactions = engine.transactions()
         feeTiers = await feeEstimator.tiers(esploraURL: chain.esploraURL, feesURL: chain.feesURL)
         usdPerBTC = await priceOracle.usdPerBTC() ?? usdPerBTC
         publishSnapshot()
+
+        // Money arriving while you watch deserves a buzz.
+        if hasLoadedOnce, balance.totalSats > previousTotal {
+            Haptics.success()
+        }
+        hasLoadedOnce = true
     }
 
     /// "≈ $12.34" for display, or nil when the rate is unknown.

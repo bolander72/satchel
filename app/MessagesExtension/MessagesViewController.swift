@@ -33,7 +33,15 @@ final class MessagesViewController: MSMessagesAppViewController {
         if let selected = conversation.selectedMessage {
             bridge.handleSelected(selected, store: store)
         }
-        Task { await store.start() }
+        Task {
+            await store.start()
+            store.startAutoRefresh()
+        }
+    }
+
+    override func willResignActive(with conversation: MSConversation) {
+        super.willResignActive(with: conversation)
+        store.stopAutoRefresh()
     }
 
     override func didSelect(_ message: MSMessage, conversation: MSConversation) {
