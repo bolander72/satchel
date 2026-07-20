@@ -90,16 +90,26 @@ final class WalletStore: ObservableObject {
                 try await bootEngine(with: cached)
                 phase = .ready
                 await refresh()
-            } else if backupStore.backupExists() {
+                return
+            }
+            // Everything touching the ubiquity container must stay off the
+            // main actor: url(forUbiquityContainerIdentifier:) can block for
+            // seconds on a real device while iOS provisions the container —
+            // on main it freezes the extension into a blank panel.
+            let store = backupStore
+            let hasBackup = try await Self.offMain { store.backupExists() }
+            if hasBackup {
                 phase = .working("Restoring your wallet…")
-                let envelope = try await backupStore.load()
+                let envelope = try await Task.detached(priority: .userInitiated) {
+                    try await store.load()
+                }.value
                 let material = try await keyMaterial(for: envelope)
                 sessionKey = (material, envelope.keyProvider)
                 knownBackupProvider = envelope.keyProvider
                 let restored = try BackupCrypto.open(envelope, inputKeyMaterial: material)
                 try await bootEngine(with: restored)
                 localSecrets.save(restored)
-                backupInICloud = backupStore.isUsingICloud
+                backupInICloud = try await Self.offMain { store.isUsingICloud }
                 phase = .ready
                 await refresh(fullScan: true)
             } else {
@@ -484,9 +494,14 @@ final class WalletStore: ObservableObject {
             inputKeyMaterial: sessionKey.material,
             keyProvider: sessionKey.provider
         )
-        try backupStore.save(envelope)
+        // Ubiquity writes off-main (see bootstrap note).
+        let store = backupStore
+        let inICloud = try await Self.offMain {
+            try store.save(envelope)
+            return store.isUsingICloud
+        }
         knownBackupProvider = sessionKey.provider
-        backupInICloud = backupStore.isUsingICloud
+        backupInICloud = inICloud
     }
 
     // MARK: - Helpers
