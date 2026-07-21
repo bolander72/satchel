@@ -11,6 +11,7 @@ struct SettingsView: View {
     @State private var showSecurityExplainer = false
     #if DEBUG
         @State private var showClaimLinkPrompt = false
+        @State private var passkeyProbeResult: String?
         @State private var claimLinkText = ""
         @State private var debugVoucher: ClaimVoucher?
     #endif
@@ -145,6 +146,31 @@ struct SettingsView: View {
         @ViewBuilder
         private var developerSection: some View {
             Section("Developer") {
+                Button {
+                    Task {
+                        guard #available(iOS 18.0, *) else {
+                            passkeyProbeResult = "iOS 18+ required"
+                            return
+                        }
+                        passkeyProbeResult = "Running in EXTENSION process…"
+                        let prf = PasskeyPRFKeyProvider(anchor: store.presentationAnchor)
+                        do {
+                            _ = try await prf.keyMaterial()
+                            passkeyProbeResult = "✅ PASSKEY CEREMONY SUCCEEDED IN THE EXTENSION — the host-app redirect is unnecessary."
+                        } catch {
+                            passkeyProbeResult = "❌ Failed in extension: \((error as NSError).domain) code \((error as NSError).code) — \(error.localizedDescription)"
+                        }
+                    }
+                } label: {
+                    Label("Test passkey in THIS extension", systemImage: "testtube.2")
+                }
+                if let passkeyProbeResult {
+                    Text(passkeyProbeResult)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+
                 Button {
                     showClaimLinkPrompt = true
                 } label: {
