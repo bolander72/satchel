@@ -3,6 +3,7 @@ import WalletKit
 
 struct SettingsView: View {
     @ObservedObject var store: WalletStore
+    @ObservedObject var bridge: ExtensionBridge
     @Environment(\.dismiss) private var dismiss
 
     @State private var seedWords: [String]?
@@ -32,6 +33,7 @@ struct SettingsView: View {
                         .font(.system(.body, design: .rounded).weight(.medium))
                 }
             }
+            .onAppear { store.refreshProviderFromGroup() }
         }
         .tint(.blue)
         .sheet(item: seedSheet) { words in
@@ -86,17 +88,13 @@ struct SettingsView: View {
 
             if store.canUpgradeToPasskey {
                 Button {
-                    Task {
-                        do {
-                            try await store.upgradeToPasskeyProtection()
-                            Haptics.success()
-                        } catch {
-                            store.lastError = (error as? LocalizedError)?.errorDescription ?? "\(error)"
-                        }
-                    }
+                    bridge.openHostApp("upgrade")
                 } label: {
                     Label("Upgrade to passkey protection", systemImage: "person.badge.key.fill")
                 }
+                Text("Continues in the OrangeBubbles app — iOS only allows passkey creation there. If nothing opens, launch OrangeBubbles from your Home Screen.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Button {

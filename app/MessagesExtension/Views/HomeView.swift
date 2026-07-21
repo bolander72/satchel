@@ -75,7 +75,7 @@ struct HomeView: View {
             }
         }
         .sheet(isPresented: $showSettings) {
-            SettingsView(store: store)
+            SettingsView(store: store, bridge: bridge)
         }
         .task { await store.refresh() }
     }

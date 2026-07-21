@@ -48,12 +48,13 @@ final class WalletStore: ObservableObject {
     private let priceOracle = PriceOracle()
     private var started = false
 
-    /// Which provider sealed the cloud envelope, remembered across launches
-    /// so silent reseals never downgrade a passkey-sealed backup.
+    /// Which provider sealed the cloud envelope. Lives in the App Group so
+    /// the HOST APP's passkey upgrade (see HostApp/PasskeyOps) is visible
+    /// here immediately, and silent reseals never downgrade it.
     private static let backupProviderKey = "backupKeyProvider.v1"
     private var knownBackupProvider: String? {
-        get { UserDefaults.standard.string(forKey: Self.backupProviderKey) }
-        set { UserDefaults.standard.set(newValue, forKey: Self.backupProviderKey) }
+        get { UserDefaults(suiteName: SharedSnapshot.appGroupID)?.string(forKey: Self.backupProviderKey) }
+        set { UserDefaults(suiteName: SharedSnapshot.appGroupID)?.set(newValue, forKey: Self.backupProviderKey) }
     }
 
     init(chain: ChainConfig = .fromBundle()) {
@@ -173,18 +174,12 @@ final class WalletStore: ObservableObject {
     private func keyMaterial(for envelope: BackupEnvelope) async throws -> Data {
         switch envelope.keyProvider {
         case "passkey-prf":
-            guard #available(iOS 18.0, *) else {
-                throw WalletKitError.keyUnavailable(
-                    "This backup is protected by a passkey and needs iOS 18 or later."
-                )
-            }
-            let prf = PasskeyPRFKeyProvider(anchor: presentationAnchor)
-            guard let material = try await prf.existingKeyMaterial() else {
-                throw WalletKitError.keyUnavailable(
-                    "Couldn't reach the wallet passkey. Check that iCloud Keychain is on and try again."
-                )
-            }
-            return material
+            // Passkey ceremonies can't run inside a Messages extension
+            // (WebAuthn association check fails in appex context) — the
+            // host app performs the unlock and shares the result.
+            throw WalletKitError.keyUnavailable(
+                "This backup is protected by a passkey. Open the OrangeBubbles app from your Home Screen, tap \"Unlock wallet with passkey\", then come back here."
+            )
         default:
             guard let material = try await keychainProvider.existingKeyMaterial() else {
                 throw WalletKitError.keyUnavailable(
@@ -496,17 +491,10 @@ final class WalletStore: ObservableObject {
         #endif
     }
 
-    /// Explicit, user-initiated upgrade (ADR 0002/0004): register the
-    /// wallet passkey and reseal the backup with its PRF output.
-    func upgradeToPasskeyProtection() async throws {
-        guard secrets != nil else { throw WalletKitError.internalError("wallet not ready") }
-        guard #available(iOS 18.0, *) else {
-            throw WalletKitError.keyUnavailable("Passkey protection needs iOS 18 or later.")
-        }
-        let prf = PasskeyPRFKeyProvider(anchor: presentationAnchor)
-        let material = try await prf.keyMaterial()
-        sessionKey = (material, prf.identifier)
-        try await persistBackup()
+    /// The upgrade itself runs in the HOST APP (PasskeyOps) — Messages
+    /// extensions can't perform WebAuthn ceremonies. Settings hands off.
+    func refreshProviderFromGroup() {
+        objectWillChange.send() // backupKeyProviderName reads group defaults
     }
 
     // MARK: - Backup
@@ -524,6 +512,12 @@ final class WalletStore: ObservableObject {
             sessionKey = (material, keychainProvider.identifier)
         }
         guard let sessionKey else { return }
+        // The host app may have upgraded the envelope to passkey-prf while
+        // this session still holds the old keychain key — never downgrade.
+        if knownBackupProvider == "passkey-prf", sessionKey.provider != "passkey-prf" {
+            self.sessionKey = nil
+            return
+        }
 
         let indexes = engine.revealedIndexes()
         secrets.receiveIndexHint = indexes.receive

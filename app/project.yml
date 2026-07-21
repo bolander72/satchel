@@ -30,9 +30,11 @@ targets:
     sources:
       - HostApp
       - Shared
+      - PasskeyShared
     dependencies:
       - target: MessagesExtension
       - target: WalletWidget
+      - package: WalletKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.bolandcompany.orangebubbles
@@ -41,6 +43,10 @@ targets:
       path: HostApp/Info.plist
       properties:
         CFBundleDisplayName: OrangeBubbles
+        CFBundleURLTypes:
+          - CFBundleURLName: com.bolandcompany.orangebubbles
+            CFBundleURLSchemes:
+              - orangebubbles
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
@@ -79,6 +85,7 @@ targets:
     sources:
       - MessagesExtension
       - Shared
+      - PasskeyShared
     dependencies:
       - package: WalletKit
     settings:

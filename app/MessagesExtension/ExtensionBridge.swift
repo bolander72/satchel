@@ -18,6 +18,13 @@ final class ExtensionBridge: ObservableObject {
         controller?.requestPresentationStyle(.expanded)
     }
 
+    /// Bounces the user into the container app (passkey ceremonies run
+    /// there). Falls back silently; Settings shows manual instructions.
+    func openHostApp(_ action: String = "upgrade") {
+        guard let url = URL(string: "orangebubbles://\(action)") else { return }
+        controller?.extensionContext?.open(url, completionHandler: nil)
+    }
+
     // MARK: - Cards
 
     /// Session of the card the user most recently tapped in the transcript.
