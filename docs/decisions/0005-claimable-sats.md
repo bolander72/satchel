@@ -1,10 +1,10 @@
-# ADR 0005: Claimable sats — send bitcoin to people who don't have Satchel
+# ADR 0005: Claimable sats — send bitcoin to people who don't have OrangeBubbles
 
 **Status:** accepted (2026-07-12)
 
 ## Problem
 
-The magic Satchel promises is "text bitcoin to anyone in your contacts."
+The magic OrangeBubbles promises is "text bitcoin to anyone in your contacts."
 But an on-chain send needs the recipient's address, which needs the
 recipient to have a wallet, which needs them to have the app. Identity
 directories (phone → address) require a server and a privacy-hostile
@@ -15,7 +15,7 @@ docs/launch-blockers.md).
 
 A "gift" is a tiny single-purpose wallet the sender creates and funds:
 
-1. **Sender:** Satchel generates a throwaway BIP39 mnemonic (the *claim
+1. **Sender:** OrangeBubbles generates a throwaway BIP39 mnemonic (the *claim
    secret*), derives its first address, and sends the gift amount there
    with a normal on-chain transaction from the sender's wallet (Face ID,
    review sheet — it's a spend like any other).
@@ -23,7 +23,7 @@ A "gift" is a tiny single-purpose wallet the sender creates and funds:
    payload. iMessage is end-to-end encrypted, so the secret reaches
    exactly the conversation's participants — no server, no directory,
    no address exchange. **The message is the money.**
-3. **Recipient:** taps the card. If they have Satchel (auto-wallet means
+3. **Recipient:** taps the card. If they have OrangeBubbles (auto-wallet means
    they have a wallet the instant they install it), the app rebuilds the
    claim wallet from the secret, checks the chain, and **sweeps** the
    funds into their own wallet. Claiming is receiving — no Face ID.
@@ -52,7 +52,7 @@ audited machinery.
 - **Two transactions, two fees.** Funding fee paid by sender on top;
   sweep fee comes out of the gift. Minimum gift is 3,000 sats so a
   sweep at modest fee rates never leaves dust.
-- **Expiry is advisory,** not consensus-enforced: after 14 days Satchel
+- **Expiry is advisory,** not consensus-enforced: after 14 days OrangeBubbles
   nudges the sender to reclaim, but an unclaimed gift remains claimable
   until someone sweeps it.
 - **Transcript persistence:** the secret lives in the Messages
@@ -65,7 +65,7 @@ audited machinery.
 `https://wallet.taprootwizards.com/claim?v=1&m=<mnemonic>&sats=<n>&exp=<unix>`
 — same URL-namespace convention as `/pay` and `/paid`; the web fallback
 page (launch-blockers item 3) should eventually render "you've been
-sent bitcoin — get Satchel to claim it" *without* echoing the secret
+sent bitcoin — get OrangeBubbles to claim it" *without* echoing the secret
 into any analytics-bearing context (static page, no logging).
 
 ## Rejected alternatives

@@ -40,7 +40,7 @@ final class ExtensionBridge: ObservableObject {
         switch kind {
         case .request:
             layout.image = CardImageRenderer.render(kind: .request, request: request)
-            layout.caption = "Tap to pay with Satchel"
+            layout.caption = "Tap to pay with OrangeBubbles"
         case .sent:
             layout.image = CardImageRenderer.render(kind: .receipt, request: request)
             layout.caption = "Tap to view details"
@@ -73,7 +73,7 @@ final class ExtensionBridge: ObservableObject {
             kind: .gift,
             request: PaymentRequest(address: voucher.address, amountSats: voucher.amountSats)
         )
-        layout.caption = "Tap to claim with Satchel"
+        layout.caption = "Tap to claim with OrangeBubbles"
 
         let message = MSMessage(session: MSSession())
         message.url = components.url

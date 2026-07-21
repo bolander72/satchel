@@ -49,8 +49,8 @@ jobs:
       - name: Build
         working-directory: app
         run: |
-          xcodebuild -project Satchel.xcodeproj \
-            -scheme Satchel \
+          xcodebuild -project OrangeBubbles.xcodeproj \
+            -scheme OrangeBubbles \
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO \
             build

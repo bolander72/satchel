@@ -11,7 +11,7 @@ import Foundation
 public enum BackupCrypto {
     public static let cipherIdentifier = "chacha20poly1305+hkdf-sha256"
     // Frozen forever: this string is baked into every existing backup's
-    // key derivation. The product was renamed to Satchel; this stays.
+    // key derivation. The product was renamed to OrangeBubbles; this stays.
     private static let hkdfInfo = Data("wizard-imessage-wallet backup v1".utf8)
 
     public static func seal(

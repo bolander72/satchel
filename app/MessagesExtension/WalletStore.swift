@@ -4,7 +4,7 @@ import WalletKit
 import WidgetKit
 
 /// App-layer state machine implementing the auto-wallet model (ADR 0004):
-/// opening Satchel silently creates or restores the wallet — no ceremony,
+/// opening OrangeBubbles silently creates or restores the wallet — no ceremony,
 /// no prompts. Face ID guards what matters: spending and revealing the
 /// recovery phrase. Balance and receiving are as open as a mailbox.
 @MainActor

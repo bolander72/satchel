@@ -141,7 +141,7 @@ struct ReceiveView: View {
     private func shareButton(for request: PaymentRequest) -> some View {
         Button {
             var final = request
-            final.label = "Satchel"
+            final.label = "OrangeBubbles"
             bridge.insertCard(for: final, kind: .request)
             dismiss()
         } label: {

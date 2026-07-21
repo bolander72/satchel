@@ -558,7 +558,7 @@ struct SendView: View {
             VStack(spacing: 4) {
                 Text("Gift of \(Format.sats(voucher.amountSats)) sats ready")
                     .font(.system(.title3, design: .rounded).weight(.bold))
-                Text("Add the card to the chat and hit send —\nthey can claim it the moment they get Satchel.")
+                Text("Add the card to the chat and hit send —\nthey can claim it the moment they get OrangeBubbles.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

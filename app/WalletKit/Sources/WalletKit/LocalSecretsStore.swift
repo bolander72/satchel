@@ -56,7 +56,7 @@ public struct LocalSecretsStore: Sendable {
         attributes[kSecValueData] = data
         attributes[kSecAttrAccessible] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         attributes[kSecAttrSynchronizable] = false
-        attributes[kSecAttrLabel] = "Satchel wallet (this device)"
+        attributes[kSecAttrLabel] = "OrangeBubbles wallet (this device)"
         SecItemAdd(attributes as CFDictionary, nil)
     }
 

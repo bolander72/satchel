@@ -6,7 +6,7 @@
 ┌─────────────────────────── iPhone ───────────────────────────┐
 │                                                               │
 │  Messages.app                                                 │
-│  └── Satchel (MSMessagesAppViewController)              │
+│  └── OrangeBubbles (MSMessagesAppViewController)              │
 │      ├── SwiftUI UI (MessagesExtension/)                      │
 │      │     RootView → Welcome / Home / Receive / Send         │
 │      ├── WalletStore  — app state machine, Face ID gating     │

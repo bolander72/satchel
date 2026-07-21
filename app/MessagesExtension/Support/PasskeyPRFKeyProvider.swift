@@ -27,7 +27,7 @@ final class PasskeyPRFKeyProvider: NSObject, BackupKeyProvider, @unchecked Senda
     /// Fixed, public PRF evaluation salt. Not secret — security comes from
     /// the credential; the salt just domain-separates this use.
     // Frozen forever: PRF output depends on this salt; renaming the product
-    // to Satchel must not change it or passkey-sealed backups break.
+    // to OrangeBubbles must not change it or passkey-sealed backups break.
     private static let prfSalt = Data(SHA256.hash(data: Data("wizard-imessage-wallet/backup-key/v1".utf8)))
 
     private let relyingParty: String
@@ -77,7 +77,7 @@ final class PasskeyPRFKeyProvider: NSObject, BackupKeyProvider, @unchecked Senda
         let provider = ASAuthorizationPlatformPublicKeyCredentialProvider(relyingPartyIdentifier: relyingParty)
         let request = provider.createCredentialRegistrationRequest(
             challenge: Self.randomBytes(32),
-            name: "Satchel",
+            name: "OrangeBubbles",
             userID: try await userIDStore.keyMaterial()
         )
         request.userVerificationPreference = .required

@@ -231,7 +231,7 @@ struct SecurityExplainerView: View {
                         icon: "arrow.triangle.2.circlepath.icloud",
                         tint: .indigo,
                         title: "Losing your phone isn't losing your bitcoin",
-                        body: "Sign into iCloud on a new iPhone, open Satchel, and unlock — the backup and its key sync down and the same wallet is rebuilt. The recovery phrase in Settings is a manual backstop on top of that."
+                        body: "Sign into iCloud on a new iPhone, open OrangeBubbles, and unlock — the backup and its key sync down and the same wallet is rebuilt. The recovery phrase in Settings is a manual backstop on top of that."
                     )
 
                     explainerCard(
@@ -287,7 +287,7 @@ struct SeedRevealView: View {
             VStack(spacing: 18) {
                 InfoBanner(
                     systemName: "eye.trianglebadge.exclamationmark.fill",
-                    text: "Never share these words or type them into any website. Satchel will never ask for them.",
+                    text: "Never share these words or type them into any website. OrangeBubbles will never ask for them.",
                     tint: .red
                 )
 

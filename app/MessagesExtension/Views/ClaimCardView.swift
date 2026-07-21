@@ -53,7 +53,7 @@ struct ClaimCardView: View {
                 IconBubble(systemName: "checkmark", tint: .green, size: 72)
                 Text("+\(Format.sats(claimedSats)) sats")
                     .font(.system(.title2, design: .rounded).weight(.bold))
-                Text(isSender ? "Returned to your wallet." : "Added to your Satchel.")
+                Text(isSender ? "Returned to your wallet." : "Added to your wallet.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } else {

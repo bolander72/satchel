@@ -51,11 +51,11 @@ final class PaymentRequestTests: XCTestCase {
         let request = PaymentRequest(
             address: "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq",
             amountSats: 150_000,
-            label: "Satchel Request"
+            label: "OrangeBubbles Request"
         )
         XCTAssertEqual(
             request.bip21URI,
-            "bitcoin:bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq?amount=0.00150000&label=Satchel%20Request"
+            "bitcoin:bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq?amount=0.00150000&label=OrangeBubbles%20Request"
         )
     }
 

@@ -13,12 +13,12 @@ struct WalletWidgetBundle: WidgetBundle {
 
 struct WalletWidget: Widget {
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "SatchelBalance", provider: SnapshotProvider()) { entry in
+        StaticConfiguration(kind: "SatchelBalance" /* frozen: placed widgets key on this */, provider: SnapshotProvider()) { entry in
             WalletWidgetView(entry: entry)
                 .containerBackground(for: .widget) { Color(.systemBackground) }
         }
         .configurationDisplayName("Bitcoin Balance")
-        .description("Your Satchel balance and latest activity.")
+        .description("Your OrangeBubbles balance and latest activity.")
         .supportedFamilies([.systemSmall, .systemMedium, .accessoryInline, .accessoryRectangular])
     }
 }
@@ -71,7 +71,7 @@ struct WalletWidgetView: View {
                     .privacySensitive()
             case .accessoryRectangular:
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Satchel")
+                    Text("OrangeBubbles")
                         .font(.caption2.weight(.semibold))
                     Text(snapshot.balanceLine)
                         .font(.headline)
@@ -90,7 +90,7 @@ struct WalletWidgetView: View {
                 Image(systemName: "bitcoinsign.circle.fill")
                     .font(.title2)
                     .foregroundStyle(orange)
-                Text("Open Satchel in Messages to set up")
+                Text("Open OrangeBubbles in Messages to set up")
                     .font(.caption2)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.secondary)

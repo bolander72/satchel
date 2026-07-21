@@ -4,7 +4,7 @@
 
 ## Decision
 
-There is no "Create Wallet" step and no unlock screen. Opening Satchel
+There is no "Create Wallet" step and no unlock screen. Opening OrangeBubbles
 silently creates the wallet (first ever open) or restores it (fresh
 device with an iCloud backup). Face ID guards **spending and revealing
 the recovery phrase** — not viewing the balance, not receiving.

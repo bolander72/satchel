@@ -158,7 +158,7 @@ struct CardStatusView: View {
                 Button {
                     showPay = true
                 } label: {
-                    Label("Pay with Satchel", systemImage: "bitcoinsign.circle.fill")
+                    Label("Pay with OrangeBubbles", systemImage: "bitcoinsign.circle.fill")
                 }
                 .buttonStyle(ProminentButtonStyle())
                 .disabled(store.balance.totalSats == 0)

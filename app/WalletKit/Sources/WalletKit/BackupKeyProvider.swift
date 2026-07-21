@@ -59,7 +59,7 @@ public struct SyncedKeychainKeyProvider: BackupKeyProvider {
             kSecValueData: bytes,
             kSecAttrSynchronizable: Self.synchronizable,
             kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlock,
-            kSecAttrLabel: "Satchel backup key",
+            kSecAttrLabel: "OrangeBubbles backup key",
         ]
         let status = SecItemAdd(attributes as CFDictionary, nil)
         if status == errSecDuplicateItem {
