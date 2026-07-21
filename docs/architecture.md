@@ -95,7 +95,7 @@ index hints.
 
 Cards are `MSMessage`s whose URL encodes a `PaymentRequest` as query items
 (`v`, `address`, `sats`, `label`, `txid`) under
-`https://wallet.taprootwizards.com/pay` (request) or `/paid` (receipt). The
+`https://boland.co/pay` (request) or `/paid` (receipt). The
 domain is currently just a namespace; when we stand it up for real it should
 serve a web fallback for non-iOS recipients showing the BIP21 link.
 

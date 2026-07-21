@@ -63,7 +63,11 @@ targets:
         com.apple.developer.icloud-services:
           - CloudDocuments
         com.apple.developer.associated-domains:
-          - webcredentials:wallet.taprootwizards.com
+          - webcredentials:boland.co
+          # developer-mode entry: lets dev builds bypass Apple's AASA CDN
+          # cache (requires Settings > Developer > Associated Domains
+          # Development on the phone); ignored by App Store builds.
+          - webcredentials:boland.co?mode=developer
         com.apple.security.application-groups:
           - group.com.bolandcompany.orangebubbles
         keychain-access-groups:
@@ -107,7 +111,11 @@ targets:
         com.apple.developer.icloud-services:
           - CloudDocuments
         com.apple.developer.associated-domains:
-          - webcredentials:wallet.taprootwizards.com
+          - webcredentials:boland.co
+          # developer-mode entry: lets dev builds bypass Apple's AASA CDN
+          # cache (requires Settings > Developer > Associated Domains
+          # Development on the phone); ignored by App Store builds.
+          - webcredentials:boland.co?mode=developer
         com.apple.security.application-groups:
           - group.com.bolandcompany.orangebubbles
         keychain-access-groups:

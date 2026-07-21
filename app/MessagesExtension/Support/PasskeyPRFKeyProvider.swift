@@ -5,10 +5,9 @@ import WalletKit
 
 enum WalletIdentity {
     /// Relying party for the wallet passkey. The domain must serve an AASA
-    /// file with `webcredentials` listing this app (server/ has the route;
-    /// static hosting works too). Until it does, passkey registration fails
+    /// file with `webcredentials` listing this app (static hosting). Until it does, passkey registration fails
     /// at runtime and WalletStore falls back to the synced-keychain provider.
-    static let relyingParty = "wallet.taprootwizards.com"
+    static let relyingParty = "boland.co"
 }
 
 /// ADR 0002's end state: the backup encryption key comes from the PRF

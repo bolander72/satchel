@@ -4,7 +4,8 @@
 <dict>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
-		<string>webcredentials:wallet.taprootwizards.com</string>
+		<string>webcredentials:boland.co</string>
+		<string>webcredentials:boland.co?mode=developer</string>
 	</array>
 	<key>com.apple.developer.icloud-container-identifiers</key>
 	<array>

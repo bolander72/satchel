@@ -2,7 +2,7 @@
 
 These are the items standing between the current build and a public App
 Store release that **cannot be done in this repo** — they need an Apple
-organization account and/or the `wallet.taprootwizards.com` domain.
+organization account and/or the `boland.co` domain.
 Everything here honors the standing product policy:
 
 > **No Taproot Wizards server.** Users must never depend on TW as a third
@@ -51,7 +51,7 @@ scrutiny. Ours is straightforward and true:
 Host it as a static page on the same site as items 3–4. One afternoon of
 writing once the domain exists.
 
-## 3. Static site at wallet.taprootwizards.com
+## 3. Static site at boland.co
 
 One static site (Cloudflare Pages / GitHub Pages / S3 — anything that
 serves files) unlocks three things at once. No server code, no logs
@@ -60,7 +60,7 @@ requirement, no user data:
 | Path | Purpose |
 | --- | --- |
 | `/.well-known/apple-app-site-association` | Passkey (PRF) domain association — the file that activates ADR 0002's end-state encryption. JSON with `webcredentials.apps = ["<TEAMID>.com.bolandcompany.orangebubbles.MessagesExtension"]`. Must be served as `application/json`, no redirect. |
-| `/pay` and `/paid` | Card-URL fallback. Every payment card carries `https://wallet.taprootwizards.com/pay?address=…&sats=…`. On Android/desktop/forwarded contexts that's currently a dead link. A static page (client-side JS reads the query string) should render the amount, address, QR / `bitcoin:` URI, and an App Store link. No data leaves the page. |
+| `/pay` and `/paid` | Card-URL fallback. Every payment card carries `https://boland.co/pay?address=…&sats=…`. On Android/desktop/forwarded contexts that's currently a dead link. A static page (client-side JS reads the query string) should render the amount, address, QR / `bitcoin:` URI, and an App Store link. No data leaves the page. |
 | `/privacy` | Item 2. |
 
 After the AASA file is live and the app runs on a real signed device,
