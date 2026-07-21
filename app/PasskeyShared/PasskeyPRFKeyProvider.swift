@@ -49,8 +49,10 @@ final class PasskeyPRFKeyProvider: NSObject, BackupKeyProvider, @unchecked Senda
     // MARK: - BackupKeyProvider
 
     /// Asserts against an existing passkey, registering one first if needed.
+    /// The probe assertion is silent (no sheet) — if no local credential
+    /// exists it fails immediately and we proceed to registration.
     func keyMaterial() async throws -> Data {
-        if let existing = try? await assertPRF() {
+        if let existing = try? await assertPRF(silentProbe: true) {
             return existing
         }
         return try await registerAndDerive()
@@ -93,13 +95,13 @@ final class PasskeyPRFKeyProvider: NSObject, BackupKeyProvider, @unchecked Senda
         return try await assertPRF()
     }
 
-    private func assertPRF() async throws -> Data {
+    private func assertPRF(silentProbe: Bool = false) async throws -> Data {
         let provider = ASAuthorizationPlatformPublicKeyCredentialProvider(relyingPartyIdentifier: relyingParty)
         let request = provider.createCredentialAssertionRequest(challenge: Self.randomBytes(32))
         request.userVerificationPreference = .required
         request.prf = .inputValues(.init(saltInput1: Self.prfSalt))
 
-        let authorization = try await perform(request)
+        let authorization = try await perform(request, silentProbe: silentProbe)
         guard
             let credential = authorization.credential as? ASAuthorizationPlatformPublicKeyCredentialAssertion,
             let first = credential.prf?.first
@@ -111,7 +113,7 @@ final class PasskeyPRFKeyProvider: NSObject, BackupKeyProvider, @unchecked Senda
         return first.withUnsafeBytes { Data($0) }
     }
 
-    private func perform(_ request: ASAuthorizationRequest) async throws -> ASAuthorization {
+    private func perform(_ request: ASAuthorizationRequest, silentProbe: Bool = false) async throws -> ASAuthorization {
         try await withCheckedThrowingContinuation { cont in
             self.continuation = cont
             Task { @MainActor in
@@ -119,7 +121,13 @@ final class PasskeyPRFKeyProvider: NSObject, BackupKeyProvider, @unchecked Senda
                 controller.delegate = self
                 controller.presentationContextProvider = self
                 self.activeController = controller
-                controller.performRequests()
+                if silentProbe {
+                    // No UI: fails fast when no local credential matches,
+                    // instead of offering QR / other-device sign-in.
+                    controller.performRequests(options: .preferImmediatelyAvailableCredentials)
+                } else {
+                    controller.performRequests()
+                }
             }
         }
     }
