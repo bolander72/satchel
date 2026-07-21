@@ -14,19 +14,12 @@ public struct ICloudBackupStore: Sendable {
     public static let previousFileName = "wallet-backup.v1.previous.json"
 
     private let containerIdentifier: String?
-    /// Pre-rename wallets' backups live here; read-only fallback so an
-    /// upgraded install finds its wallet, after which saves re-home it.
-    private let legacyContainerIdentifier: String?
     private var fileManager: FileManager { FileManager.default }
 
     /// - Parameter containerIdentifier: pass nil for the app's first
     ///   ubiquity container from entitlements.
-    public init(
-        containerIdentifier: String? = nil,
-        legacyContainerIdentifier: String? = "iCloud.com.bolandcompany.satchel"
-    ) {
+    public init(containerIdentifier: String? = nil) {
         self.containerIdentifier = containerIdentifier
-        self.legacyContainerIdentifier = legacyContainerIdentifier
     }
 
     // MARK: - Locations
@@ -36,16 +29,7 @@ public struct ICloudBackupStore: Sendable {
     }
 
     private func icloudURL() -> URL? {
-        icloudURL(in: containerIdentifier)
-    }
-
-    private func legacyICloudURL() -> URL? {
-        guard let legacyContainerIdentifier else { return nil }
-        return icloudURL(in: legacyContainerIdentifier)
-    }
-
-    private func icloudURL(in identifier: String?) -> URL? {
-        guard let container = fileManager.url(forUbiquityContainerIdentifier: identifier) else {
+        guard let container = fileManager.url(forUbiquityContainerIdentifier: containerIdentifier) else {
             return nil
         }
         let documents = container.appendingPathComponent("Documents", isDirectory: true)
@@ -63,12 +47,11 @@ public struct ICloudBackupStore: Sendable {
     // MARK: - API
 
     public func backupExists() -> Bool {
-        for candidate in [icloudURL(), legacyICloudURL()].compactMap({ $0 }) {
-            if fileManager.fileExists(atPath: candidate.path)
-                || fileManager.isUbiquitousItem(at: candidate)
-                || fileManager.fileExists(atPath: previousURL(for: candidate).path) {
-                return true
-            }
+        if let icloud = icloudURL(),
+           fileManager.fileExists(atPath: icloud.path)
+               || fileManager.isUbiquitousItem(at: icloud)
+               || fileManager.fileExists(atPath: previousURL(for: icloud).path) {
+            return true
         }
         let fallback = fallbackURL()
         return fileManager.fileExists(atPath: fallback.path)
@@ -76,7 +59,7 @@ public struct ICloudBackupStore: Sendable {
     }
 
     public func load() async throws -> BackupEnvelope {
-        for icloud in [icloudURL(), legacyICloudURL()].compactMap({ $0 }) {
+        if let icloud = icloudURL() {
             if !fileManager.fileExists(atPath: icloud.path), fileManager.isUbiquitousItem(at: icloud) {
                 // Ask iCloud to materialize the file, then poll briefly.
                 try? fileManager.startDownloadingUbiquitousItem(at: icloud)
@@ -87,9 +70,9 @@ public struct ICloudBackupStore: Sendable {
             if let envelope = decodeWithPreviousFallback(main: icloud) {
                 return envelope
             }
-        }
-        if let icloud = icloudURL(), fileManager.fileExists(atPath: icloud.path) {
-            throw WalletKitError.backupCorrupted("backup and its previous copy are both unreadable")
+            if fileManager.fileExists(atPath: icloud.path) {
+                throw WalletKitError.backupCorrupted("backup and its previous copy are both unreadable")
+            }
         }
         let fallback = fallbackURL()
         if let envelope = decodeWithPreviousFallback(main: fallback) {

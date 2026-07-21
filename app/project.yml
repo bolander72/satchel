@@ -58,10 +58,8 @@ targets:
       properties:
         com.apple.developer.icloud-container-identifiers:
           - iCloud.com.bolandcompany.orangebubbles
-          - iCloud.com.bolandcompany.satchel
         com.apple.developer.ubiquity-container-identifiers:
           - iCloud.com.bolandcompany.orangebubbles
-          - iCloud.com.bolandcompany.satchel
         com.apple.developer.icloud-services:
           - CloudDocuments
         com.apple.developer.associated-domains:
@@ -70,8 +68,6 @@ targets:
           - group.com.bolandcompany.orangebubbles
         keychain-access-groups:
           - $(AppIdentifierPrefix)com.bolandcompany.orangebubbles.shared
-          # Legacy group: pre-rename wallets' keys live here (reads only).
-          - $(AppIdentifierPrefix)com.bolandcompany.satchel.shared
 
   MessagesExtension:
     type: app-extension.messages
@@ -106,10 +102,8 @@ targets:
       properties:
         com.apple.developer.icloud-container-identifiers:
           - iCloud.com.bolandcompany.orangebubbles
-          - iCloud.com.bolandcompany.satchel
         com.apple.developer.ubiquity-container-identifiers:
           - iCloud.com.bolandcompany.orangebubbles
-          - iCloud.com.bolandcompany.satchel
         com.apple.developer.icloud-services:
           - CloudDocuments
         com.apple.developer.associated-domains:
@@ -118,8 +112,6 @@ targets:
           - group.com.bolandcompany.orangebubbles
         keychain-access-groups:
           - $(AppIdentifierPrefix)com.bolandcompany.orangebubbles.shared
-          # Legacy group: pre-rename wallets' keys live here (reads only).
-          - $(AppIdentifierPrefix)com.bolandcompany.satchel.shared
 
   WalletWidget:
     type: app-extension
