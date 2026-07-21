@@ -62,7 +62,7 @@ audited machinery.
 
 ## Card protocol
 
-`https://boland.co/claim?v=1&m=<mnemonic>&sats=<n>&exp=<unix>`
+`https://www.boland.co/claim?v=1&m=<mnemonic>&sats=<n>&exp=<unix>`
 — same URL-namespace convention as `/pay` and `/paid`; the web fallback
 page (launch-blockers item 3) should eventually render "you've been
 sent bitcoin — get OrangeBubbles to claim it" *without* echoing the secret

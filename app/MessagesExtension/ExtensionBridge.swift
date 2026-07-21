@@ -32,7 +32,7 @@ final class ExtensionBridge: ObservableObject {
 
         var components = URLComponents()
         components.scheme = "https"
-        components.host = "boland.co"
+        components.host = "www.boland.co"
         components.path = kind == .request ? "/pay" : "/paid"
         components.queryItems = request.queryItems()
 
@@ -64,7 +64,7 @@ final class ExtensionBridge: ObservableObject {
 
         var components = URLComponents()
         components.scheme = "https"
-        components.host = "boland.co"
+        components.host = "www.boland.co"
         components.path = "/claim"
         components.queryItems = voucher.queryItems()
 

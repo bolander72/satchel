@@ -5,7 +5,7 @@ on-device validation
 
 ## Decision
 
-The preferred key path is a passkey scoped to `boland.co`
+The preferred key path is a passkey scoped to `www.boland.co`
 whose **PRF extension** output is the HKDF input
 (`PasskeyPRFKeyProvider`, iOS 18+). New wallets attempt PRF first;
 if registration fails at runtime (domain/AASA unreachable, pre-iOS-18,
@@ -18,7 +18,7 @@ output and could not decrypt the backup).
 ## Activation checklist (PRF is dormant until these are done)
 
 1. Serve the AASA file at
-   `https://boland.co/.well-known/apple-app-site-association`
+   `https://www.boland.co/.well-known/apple-app-site-association`
    with `webcredentials.apps = ["<TEAMID>.com.bolandcompany.satchel.MessagesExtension"]`
    — the server has the route (`APPLE_APP_IDS`); static hosting works too.
 2. Real signing with the associated-domains entitlement (already in
