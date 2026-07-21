@@ -1,24 +1,29 @@
 # OrangeBubbles — the orange bubble in your chats
 
-A standalone Bitcoin wallet that lives entirely inside Messages. No normal
-mobile app, no account, no backend dependency for custody. Open Messages, tap
-**Create Bitcoin Wallet**, Face ID flashes — and you have a wallet you can
-fund, share, restore, and spend from without ever learning wallet
-infrastructure exists.
+A standalone Bitcoin wallet that lives entirely inside Messages. No app to
+set up, no account, no server. Open OrangeBubbles in a conversation and the
+wallet is simply there — auto-created, backed up to your own iCloud, ready
+to receive. Face ID appears exactly when money moves.
 
-- **Non-custodial** — the seed is generated on device and never leaves it unencrypted.
-- **No seed phrase shown** — backup is an encrypted bundle in the user's own iCloud.
-- **Face ID before every send** (device passcode fallback).
-- **On-chain BTC only** in V0. No Lightning. No visible spend policy.
+- **No wallet ceremony** — silent create/restore on first open (ADR 0004).
+- **Non-custodial, serverless** — keys on device; encrypted backup in the
+  user's own iCloud; chain data straight from public Esplora APIs.
+- **Send to anyone — even without the app**: claimable gifts ride inside
+  the iMessage card itself (ADR 0005).
+- **Face ID guards spending and the recovery phrase**; balance and
+  receiving are mailbox-open.
+- **On-chain BTC only** in V1. No Lightning yet.
 
 ## Repo layout
 
 ```
-imessage-bitcoin-wallet/
+orangebubbles/
 ├── app/                    iOS app (Swift — Messages extensions can't be built in JS/TS)
 │   ├── project.yml         XcodeGen project definition (the .xcodeproj is generated)
 │   ├── HostApp/            Required container app (single "open Messages" screen)
 │   ├── MessagesExtension/  The actual product: SwiftUI UI inside Messages
+│   ├── WalletWidget/       Home/Lock Screen balance widget (watch-only snapshot)
+│   ├── Shared/             App Group snapshot shared with widget + Siri intents
 │   └── WalletKit/          Swift package: wallet engine (BitcoinDevKit), backup crypto, iCloud store
 ├── server/                 Optional backend (TypeScript/Hono): Esplora proxy + fee estimates
 └── docs/                   Architecture, security model, decision records
@@ -89,31 +94,42 @@ Read [docs/architecture.md](docs/architecture.md) for the full picture and
 [docs/security-model.md](docs/security-model.md) for the trust analysis. The
 one-paragraph version:
 
-On create, the extension generates a BIP39 mnemonic on device and derives a
-BIP84 descriptor wallet via BitcoinDevKit. The secret bundle is encrypted
-(ChaCha20-Poly1305, key via HKDF from a random 32-byte secret that lives in the
-user's **iCloud Keychain**) and written to the user's **iCloud Drive** container.
-Restore on a new iPhone = same Apple ID → backup file + key material both sync
-down → Face ID → decrypt → deterministic rescan. Receiving derives fresh
-addresses and shares them as interactive iMessage cards (BIP21 + QR); sending
-builds and signs a PSBT locally after a Face ID prompt and broadcasts through
-an Esplora API.
+On first open the extension silently generates a BIP39 mnemonic and derives
+a BIP84 descriptor wallet via BitcoinDevKit. The secret bundle is encrypted
+(ChaCha20-Poly1305, key via HKDF from a random 32-byte secret in the user's
+**iCloud Keychain** — upgradeable to passkey-PRF in Settings) and written to
+the user's **iCloud Drive**; a device-local keychain cache makes every later
+open instant and promptless. New iPhone, same Apple ID → the wallet restores
+itself and rescans. Receiving shares fresh addresses as card images in the
+chat (BIP21 + QR); sending signs a PSBT locally behind Face ID and
+broadcasts via public Esplora APIs with multi-endpoint failover. Gifts fund
+a one-time claim wallet whose secret travels inside the iMessage card —
+recipients sweep it the moment they install.
 
-## Status / roadmap
+## Status
 
-Implementation phases (from the product spec) and where they stand:
+The original V0 spec (phases 1–10: shell, derivation, backup/restore,
+cards, sync, signing, broadcast, Face ID, reinstall testing, physical
+device testing) is **complete and field-tested on a real iPhone** with
+real signet coins — including cross-device payments, camera QR sends, and
+iCloud restore across reinstalls.
 
-| Phase | Status |
-| --- | --- |
-| 1. iMessage SwiftUI shell | ✅ built |
-| 2. Wallet creation + deterministic derivation | ✅ built (BDK, BIP84 default, BIP86 supported) |
-| 3. Encrypted iCloud backup + restore | ✅ built (synced-keychain key path) |
-| 4. Receive card insert/send | ✅ built |
-| 5. Balance/UTXO lookup | ✅ built (Esplora sync) |
-| 6. PSBT construction + signing | ✅ built |
-| 7. Broadcast + tx status | ✅ built |
-| 8. Face ID/passkey unlock polish | 🔶 Face ID done; passkey-PRF provider implemented, activates once the AASA file is live on wallet.taprootwizards.com (ADR 0002) |
-| 9. Reinstall/restore testing | ⬜ needs physical devices |
-| 10. Physical iPhone testing | ⬜ needs signing + devices |
+Shipped beyond the original spec:
 
-Open decisions are captured as ADRs in [docs/decisions/](docs/decisions/).
+- **Auto-wallet** — no creation ceremony at all (ADR 0004)
+- **Claimable gifts** — send bitcoin to people without the app; the claim
+  secret rides in the iMessage card, sender can reclaim (ADR 0005)
+- Live in-chat balance refresh, tappable cards with live chain status and
+  in-place bubble updates, Send Max, RBF speed-up, dust guard,
+  address-poisoning warnings, BIP21 + QR scanning, smart amount entry
+  ("$5", "21k sats"; on-device AI on iOS 26+), fiat display,
+  Home/Lock Screen widget, Siri/Shortcuts intents (read-only by design),
+  recovery-phrase escape hatch, and a semantic color system
+
+Remaining before public release (needs the org account/domain, not code):
+[docs/launch-blockers.md](docs/launch-blockers.md). The one dormant
+feature: **passkey-PRF backup encryption** is fully implemented behind
+Settings → "Upgrade to passkey protection", and activates once a domain
+serves the AASA file (ADR 0002; relying-party domain TBD). Deferred ideas
+with triggers live in [docs/backlog.md](docs/backlog.md); decisions are
+ADRs in [docs/decisions/](docs/decisions/).
